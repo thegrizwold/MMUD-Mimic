@@ -1,0 +1,127 @@
+<Window x:Class="Mme.App.MonsterSimWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Monster Attack Simulator" Width="720" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        FontFamily="{DynamicResource ThFont}"
+        xmlns:local="clr-namespace:Mme.App">
+  <Window.Resources>
+    <local:InverseBoolConverter x:Key="InverseBool"/>
+  </Window.Resources>
+  <StackPanel Margin="10">
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,5">
+      <TextBlock Text="Monster:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+      <ComboBox Width="260" ItemsSource="{Binding Monsters}" DisplayMemberPath="Name"
+                SelectedValuePath="Number" SelectedValue="{Binding MonsterNumber}"
+                MaxDropDownHeight="380"/>
+      <TextBlock Text="Rounds:" Margin="12,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="66" Text="{Binding Rounds, UpdateSourceTrigger=PropertyChanged}"
+               IsEnabled="{Binding Dynamic, Converter={StaticResource InverseBool}}"/>
+      <CheckBox Content="or Dynamic" Margin="6,0,0,0" VerticalAlignment="Center"
+                IsChecked="{Binding Dynamic}"
+                ToolTip="Runs in 1,000-round increments until the change in result is &lt; 0.0001"/>
+      <Button Content="Run Sim" Width="80" Margin="14,0,0,0" FontWeight="Bold" Click="Run_Click"/>
+    </StackPanel>
+
+    <GroupBox Header="{Binding DefenseCaption}" Margin="0,0,0,5">
+      <StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <TextBlock Text="AC:" Width="30" VerticalAlignment="Center"/>
+          <TextBox Width="46" Text="{Binding Ac, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="DR:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="46" Text="{Binding Dr, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Dodge:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="46" Text="{Binding DodgeVal, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="MR:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="46" Text="{Binding Mr, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Prot.Evil:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="46" Text="{Binding ProtEvil, UpdateSourceTrigger=PropertyChanged}"/>
+          <CheckBox Content="Anti-Magic" Margin="10,0,0,0" VerticalAlignment="Center"
+                    IsChecked="{Binding AntiMagic}"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <TextBlock Text="Resists —  Col:" VerticalAlignment="Center"/>
+          <TextBox Width="42" Margin="3,0,0,0" Text="{Binding RCol, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Fir:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="42" Text="{Binding RFir, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Sto:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="42" Text="{Binding RSto, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Lit:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="42" Text="{Binding RLit, UpdateSourceTrigger=PropertyChanged}"/>
+          <TextBlock Text="Wat:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Width="42" Text="{Binding RWat, UpdateSourceTrigger=PropertyChanged}"/>
+          <Button Content="Zero" Width="52" Margin="16,0,0,0" Click="ResetZero_Click"/>
+          <Button Content="From Char/Party" Width="110" Margin="4,0,0,0" Click="ResetChar_Click"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <CheckBox Content="Always Dodge (dodge before AC — MegaMUD view)"
+                    IsChecked="{Binding AlwaysDodge}"/>
+          <CheckBox Content="Hide Energy Info" Margin="14,0,0,0" IsChecked="{Binding HideEnergy}"/>
+          <CheckBox Content="Log Max Round Only" Margin="14,0,0,0" IsChecked="{Binding CombatMaxRoundOnly}"/>
+        </StackPanel>
+      </StackPanel>
+    </GroupBox>
+
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="{Binding AvgDmgText}" FontWeight="Bold" FontSize="14"/>
+      <TextBlock Text="{Binding MaxSeenText}" Margin="16,0,0,0" VerticalAlignment="Bottom"/>
+      <TextBlock Text="{Binding BreakdownText}" Margin="16,0,0,0" VerticalAlignment="Bottom"/>
+    </StackPanel>
+
+    <Grid Margin="0,0,0,5">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2.2*"/><ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition/><RowDefinition/><RowDefinition/>
+        <RowDefinition/><RowDefinition/><RowDefinition/>
+      </Grid.RowDefinitions>
+      <TextBlock Grid.Row="0" Grid.Column="0" Text="Attack" FontWeight="Bold"/>
+      <TextBlock Grid.Row="0" Grid.Column="1" Text="TrueCast%" FontWeight="Bold"/>
+      <TextBlock Grid.Row="0" Grid.Column="2" Text="AVG Hit" FontWeight="Bold"/>
+      <TextBlock Grid.Row="0" Grid.Column="3" Text="Success%" FontWeight="Bold"/>
+      <TextBlock Grid.Row="0" Grid.Column="4" Text="DmgResist%" FontWeight="Bold"/>
+      <TextBlock Grid.Row="0" Grid.Column="5" Text="Res/Dodge%" FontWeight="Bold"/>
+      <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding AttackRows[0].Name}"/>
+      <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AttackRows[0].TrueCast}"/>
+      <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding AttackRows[0].AvgHit}"/>
+      <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding AttackRows[0].Success}"/>
+      <TextBlock Grid.Row="1" Grid.Column="4" Text="{Binding AttackRows[0].DmgResist}"/>
+      <TextBlock Grid.Row="1" Grid.Column="5" Text="{Binding AttackRows[0].ResistDodge}"/>
+      <TextBlock Grid.Row="2" Grid.Column="0" Text="{Binding AttackRows[1].Name}"/>
+      <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding AttackRows[1].TrueCast}"/>
+      <TextBlock Grid.Row="2" Grid.Column="2" Text="{Binding AttackRows[1].AvgHit}"/>
+      <TextBlock Grid.Row="2" Grid.Column="3" Text="{Binding AttackRows[1].Success}"/>
+      <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding AttackRows[1].DmgResist}"/>
+      <TextBlock Grid.Row="2" Grid.Column="5" Text="{Binding AttackRows[1].ResistDodge}"/>
+      <TextBlock Grid.Row="3" Grid.Column="0" Text="{Binding AttackRows[2].Name}"/>
+      <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AttackRows[2].TrueCast}"/>
+      <TextBlock Grid.Row="3" Grid.Column="2" Text="{Binding AttackRows[2].AvgHit}"/>
+      <TextBlock Grid.Row="3" Grid.Column="3" Text="{Binding AttackRows[2].Success}"/>
+      <TextBlock Grid.Row="3" Grid.Column="4" Text="{Binding AttackRows[2].DmgResist}"/>
+      <TextBlock Grid.Row="3" Grid.Column="5" Text="{Binding AttackRows[2].ResistDodge}"/>
+      <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding AttackRows[3].Name}"/>
+      <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding AttackRows[3].TrueCast}"/>
+      <TextBlock Grid.Row="4" Grid.Column="2" Text="{Binding AttackRows[3].AvgHit}"/>
+      <TextBlock Grid.Row="4" Grid.Column="3" Text="{Binding AttackRows[3].Success}"/>
+      <TextBlock Grid.Row="4" Grid.Column="4" Text="{Binding AttackRows[3].DmgResist}"/>
+      <TextBlock Grid.Row="4" Grid.Column="5" Text="{Binding AttackRows[3].ResistDodge}"/>
+      <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding AttackRows[4].Name}"/>
+      <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding AttackRows[4].TrueCast}"/>
+      <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding AttackRows[4].AvgHit}"/>
+      <TextBlock Grid.Row="5" Grid.Column="3" Text="{Binding AttackRows[4].Success}"/>
+      <TextBlock Grid.Row="5" Grid.Column="4" Text="{Binding AttackRows[4].DmgResist}"/>
+      <TextBlock Grid.Row="5" Grid.Column="5" Text="{Binding AttackRows[4].ResistDodge}"/>
+    </Grid>
+
+    <TextBlock Text="Combat Log:" FontWeight="Bold"/>
+    <TextBox Text="{Binding CombatLog, Mode=OneWay}" IsReadOnly="True"
+             Height="170" VerticalScrollBarVisibility="Auto"
+             FontFamily="Consolas" FontSize="11" TextWrapping="NoWrap"
+             HorizontalScrollBarVisibility="Auto"/>
+    <Button Content="Close" Width="70" HorizontalAlignment="Right" Margin="0,8,0,0" Click="Close_Click"/>
+  </StackPanel>
+</Window>

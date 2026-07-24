@@ -1,0 +1,72 @@
+<Window x:Class="Mme.App.SwingCalcWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Swing Calculator" Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        FontFamily="{DynamicResource ThFont}">
+  <StackPanel Margin="10">
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="Weapon:" Width="60" VerticalAlignment="Center"/>
+      <ComboBox Width="240" ItemsSource="{Binding Weapons}" DisplayMemberPath="Name"
+                SelectedValuePath="Number" SelectedValue="{Binding WeaponNumber}"
+                IsEditable="False" MaxDropDownHeight="380"/>
+      <TextBlock Text="Combat:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <ComboBox Width="52" SelectedIndex="{Binding CombatIndex}">
+        <ComboBoxItem Content="1"/><ComboBoxItem Content="2"/><ComboBoxItem Content="3"/>
+        <ComboBoxItem Content="4"/><ComboBoxItem Content="5"/>
+      </ComboBox>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="Level:" Width="60" VerticalAlignment="Center"/>
+      <TextBox Width="48" Text="{Binding Level, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="AGL:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="48" Text="{Binding Agility, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="STR:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="48" Text="{Binding Strength, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="Enc:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="56" Text="{Binding Encum, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="Max:" Margin="6,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="56" Text="{Binding MaxEncum, UpdateSourceTrigger=PropertyChanged}"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+      <TextBlock Text="Rest:" Width="60" VerticalAlignment="Center"/>
+      <ComboBox Width="120" SelectedIndex="{Binding SpeedMode}">
+        <ComboBoxItem Content="Speed (85)"/><ComboBoxItem Content="Normal (100)"/>
+        <ComboBoxItem Content="Slow (125)"/><ComboBoxItem Content="Custom"/>
+      </ComboBox>
+      <TextBox Width="52" Margin="4,0,0,0"
+               Text="{Binding CustomSpeed, UpdateSourceTrigger=PropertyChanged}"/>
+      <CheckBox Content="Slowness" Margin="12,0,0,0" VerticalAlignment="Center"
+                IsChecked="{Binding Slowness}"/>
+      <CheckBox Content="Bashing" Margin="8,0,0,0" VerticalAlignment="Center"
+                IsChecked="{Binding Bashing}"/>
+    </StackPanel>
+    <TextBlock Text="{Binding EnergyText}"/>
+    <TextBlock Text="{Binding EncumText}"/>
+    <TextBlock Text="{Binding RawSwingText}"/>
+    <TextBlock Text="{Binding QndText}"/>
+    <TextBlock Margin="0,4,0,0" FontWeight="Bold" Text="Swing rotation (10 rounds):"/>
+    <TextBlock Text="{Binding RotationText}" FontFamily="Consolas"/>
+    <TextBlock Text="{Binding EuCarryText}" FontFamily="Consolas" Opacity="0.7"/>
+    <TextBlock Margin="0,4,0,0" Text="{Binding AvgRoundText}"/>
+    <Separator Margin="0,6"/>
+    <TextBlock FontWeight="Bold" Text="True Average (paste MegaMUD stats or type):"/>
+    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+      <TextBlock Text="Hit%:" VerticalAlignment="Center"/>
+      <TextBox Width="42" Margin="2,0,6,0" Text="{Binding TrueHitPct, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="HitAVG:" VerticalAlignment="Center"/>
+      <TextBox Width="42" Margin="2,0,6,0" Text="{Binding TrueHitAvg, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="Extra%:" VerticalAlignment="Center"/>
+      <TextBox Width="42" Margin="2,0,6,0" Text="{Binding TrueExtraPct, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="ExAVG:" VerticalAlignment="Center"/>
+      <TextBox Width="42" Margin="2,0,6,0" Text="{Binding TrueExtraAvg, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="Crit%:" VerticalAlignment="Center"/>
+      <TextBox Width="42" Margin="2,0,6,0" Text="{Binding TrueCritPct, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="CrAVG:" VerticalAlignment="Center"/>
+      <TextBox Width="42" Margin="2,0,0,0" Text="{Binding TrueCritAvg, UpdateSourceTrigger=PropertyChanged}"/>
+    </StackPanel>
+    <TextBlock Margin="0,3,0,0" Text="{Binding TrueAvgText, StringFormat='True Average: {0}'}"/>
+    <Button Content="Close" Width="70" HorizontalAlignment="Right" Margin="0,8,0,0" Click="Close_Click"/>
+  </StackPanel>
+</Window>
