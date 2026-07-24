@@ -1,5 +1,135 @@
 # PORT LOG (append-only; newest session at top)
 
+## Session 46 (cont.) — 2026-07-24 — BETA 27: monster "Copy Details" → full dossier; combat-block failure made visible; ship-label correction
+
+SHIP-LABEL CORRECTION (housekeeping): the prior turn packaged the repo —
+which ALREADY contained the beta-26 combat-dossier code — under the
+label "beta 25" with a README that only described the beta-25 icon work
+and never mentioned the dossier. Verified on disk this session: the
+dossier feature is real and complete, suite was 856/856. So beta 25's
+zip actually shipped beta-26 code under-described. Beta 27 supersedes it
+with an accurate name + README covering both the dossier and this run.
+
+UX AUDIT (before building anything):
+- Dossier color coding verified sound. The attack-line template's
+  DataTriggers (red/poison/confusion/hdr) all resolve to ThemePalette
+  keys (ThDmgRed/ThUsableGreen/ThConfusionOrange), and BOTH the Classic
+  and Dark dictionaries carry an identical 43-key set (checked by diff),
+  so no invisible-color regression like the beta-25 icons' ThFg bug. The
+  kinds attack/manual/norm intentionally fall through to ThGridFg.
+
+MONSTER "COPY DETAILS" → FULL DOSSIER (closes the S44 DIVERGENCE):
+- Was: GridMonsters ctx Copy Details emitted a one-line row summary
+  (Exp/HP/AC-DR/Dodge/MR/Damage); "abilities/drops in the copy = pending".
+- Now: MainViewModel.MonsterDetailText (in MainViewModel.MonsterVerbose.cs)
+  flattens the live _monsterAttackLines — the same list the verbose pane
+  renders — to plain text. Section headers (Label only) print as-is;
+  "Label: Text" rows join with ": "; detail rows (empty Label) indent 4
+  spaces; ("","") spacers become blank lines. FlattenDossier is a public
+  static pure helper. Reads the live lines, which the SelectedMonster
+  setter keeps in sync with GridMonsters.SelectedItem (two-way bound at
+  MainWindow.xaml :1348) — the identical contract WeaponDetailText uses.
+  So the copy always matches the displayed dossier (attack rows + the
+  beta-26 Damage vs Mob + Scripting + full Lair Stats), no rebuild, no
+  spurious change notification.
+- MainWindow.xaml.cs CtxCopyDetails_Click: the GridMonsters switch arm
+  now returns _vm.MonsterDetailText (RowName still prepends the monster
+  name, which the dossier lines omit).
+
+COMBAT-BLOCK FAILURE NOW VISIBLE (UX polish):
+- MainViewModel.MonsterVerbose.cs :198 — AppendCombatAndLairSections is
+  best-effort in a try/catch. It used to swallow silently, so any throw
+  made the ENTIRE Damage/Scripting/Lair block disappear with no trace
+  (the single biggest feature, gone mysteriously). The catch now appends
+  one quiet norm line "(combat estimate unavailable)" so the absence is
+  explained. Happy path unchanged (858/858 confirms the catch isn't hit).
+
+TESTS (+2 → 858/858):
+- MonsterDetailText_FlattensFullDossier: giant rat (1) — copy text is
+  multi-line, contains "(100%) bites you: Min-Max: 2-10", "Accuracy: 10",
+  and the beta-26 "Damage vs Mob" + "Lair Stats" headers.
+- FlattenDossier_ShapesHeadersDetailsAndSpacers: pure unit test of the
+  header / "Label: Text" / indented-continuation / blank-spacer shaping.
+
+## Session 46 (cont.) — 2026-07-07 — BETA 26: the deferred monster combat block (Damage vs Mob/Lair, Scripting Estimate, Lair Stats)
+
+THE BIG DEFERRED FEATURE (agreed sessions ago): PullMonsterDetail
+:3002-3870 read line-by-line — the dossier now renders, in OG order:
+
+DAMAGE VS MOB / DAMAGE VS LAIR (:3002-3299):
+- vs-Mob rides GetDamageOutput(nSingleMonster:) — the already-ported
+  single-monster path loads the mob's AC/DR/MR/dodge/BSDefense and
+  returns the -9998 [immune:MagicLVL] sentinel (rendered red, dmg 0).
+- NEW: DamageOutput carries SAttackDesc/SAttackDetail (captured at the
+  three RoundTotal assembly sites in DamageOutputService and threaded
+  through Assemble) so the header reads "N/round (weapon name)" and the
+  Swings/AvgHit/Crit/Hit% breakdown renders under it, like the OG.
+- vs-Lair uses the LairInfo damage-out fields (NDamageOut/NFirstRound/
+  NSurprise*) computed by GetLairAveragesFromLocs WITH the attack
+  options wired (the MonsterLairMode bundle recipe, incl. the
+  PartyDamage provider and the !useChar default cHp = Round(dmg*2),
+  cHpRegen = CLng(cHp*0.05)).
+- Rounds line = CombatMath.CalcCombatRounds -> "SRtk SRtd SSuccess
+  (vs char defenses)" / "(LAIR avg vs defenses)"; success < 70% renders
+  red, >= 95% green, matching the VB6 colour gates.
+- Surprise round text incl. the -9998 "+ 0 surprise round
+  [immune:MagicLVL]" case.
+
+SCRIPTING ESTIMATE (:3306-3420):
+- Header picks "Scripting vs Lair" / "Scripting vs MOB" (RegenTime>0 or
+  Room-spawned) / "Scripting"; "(global filter inactive. default stats
+  used.)" note when Use Character is off.
+- The two CalcExpPerHour dispatches (lair-average branch and the
+  RegenTime/Room branch) mirror the MonsterLairMode call shapes
+  verbatim; "(No lairs and not assigned as an NPC)" else-branch.
+- Value formatting faithful: > 1M "#,#.00 M", > 1K "#,#.0 K", else
+  RoundUp; "/hr"; party-EA "(N/hr ea.)" when different; the
+  "undefeatable against current stats" -1 case.
+- Detail lines: SRtcText (the "% time attacking / % slower kill speed /
+  % wasted overkill" string), SMoveText, and the recovery block
+  (STimeRecovering + " > " prefixed HP/mana recovery lines).
+
+LAIR STATS (:3617-3870): Total Lairs, AVG # Mobs/Lair, AVG DMG/mob
+(+mitigated), AVG Rounds (RTK/RTC), AVG DMG/clear, AVG Regen (with the
+lairs/regen-period parenthetical incl. the RTC>MaxRegen alternate, and
+the GreaterMUD "Nm 30s" form), AVG Walk, AVG Exp (AvgLairExp + /mob),
+ACC Maj/Max, AVG HP (+/mob), AVG AC/DR, AVG Dodge (+"% @ N accy" when
+char loaded), AVG BS Defense (orange when backstab active), AVG MR,
+AVG Anti-Magic %, AVG EL. Resist (signed, nonzero only), Effective
+MagicLVL / SpellImmu (with Max-in-lairs tails), Effective Undead/
+Living/Animals %, and Other Lair Mobs — rendered as "Monster: name (N)"
+lines, which are double-click JUMPABLE via the existing NavigateFromLine
+monster branch.
+
+Implementation: MainViewModel.MonsterCombatDossier.cs (new partial),
+called from RebuildMonsterAttackLines between the attack lines and
+Spawns-via, best-effort guarded. GetMonsterCombatBasics accessor added
+(HP/HPRegen/RegenTime/AvgLairExp/EXP — note the column is "EXP" not
+"Exp"). Dossier label column widened 120->132 for the new labels.
+
+UX: RefreshMonsterDossier() re-renders the open dossier when
+UseCharacter or AttackMode changes (the numbers depend on them).
+
+DIVERGENCES (logged):
+- The OG's spawn-chance "AVG # Mobs/Lair" variant reads the NMR
+  Possy/SpawnChance arrays, absent from this stock data — the VB6
+  else-branch (NMaxRegen) is the live path here.
+- vs-Lair damage uses the lair service's averaged NDamageOut (computed
+  per-lair) rather than re-running CalculateAttack against the averaged
+  defenses; equivalent inputs, and the lair pass reuses the mob pass's
+  SAttackDesc.
+- The 500-round Dmg/Round attack sim line (clsMonsterAttackSim) remains
+  its own wave; the OOM-rounds line needs the heal-cost global (menus
+  wave).
+
+(Session start: workspace rebuilt from the beta 25 src zip after reset —
+zip now bundles the DB; copied to /home/claude/mme/current/ one level
+above the repo as the tests expect. VB6 source re-fetched from GitHub.)
+
+Suite: 856/856 (+3: LairingMonster_GetsLairStatsBlock,
+DamageVsMob_RendersRoundLine_AndRtkRtd,
+ScriptingEstimate_PresentForLairingMonster). Shipped as BETA 26.
+
 ## Session 46 — 2026-07-07 — BETA 25: icon columns to vector geometry + headers + sorting
 
 (Workspace rebuilt from the beta 24 source zip after the weekly reset;

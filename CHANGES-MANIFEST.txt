@@ -1,0 +1,36 @@
+MME EXPLORER — BETA 27 CHANGES-ONLY PACKAGE
+===========================================
+Baseline: MmeExplorer-beta26 (the last full source release).
+This package contains ONLY the files that changed for beta 27, so you
+can commit the delta to GitHub without re-uploading the whole tree.
+
+CHANGED FILES (5, all modifications — nothing added or deleted):
+  PORT_LOG.md
+  FEATURE_CENSUS.md
+  src/Mme.App.ViewModels/MainViewModel.MonsterVerbose.cs
+  src/Mme.App/MainWindow.xaml.cs
+  tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+
+TWO WAYS TO USE THIS
+--------------------
+A) Apply the patch (recommended, from a clean beta-26 checkout):
+     git apply beta27.patch
+   (verified with `git apply --check`; `patch -p1 < beta27.patch` also works)
+
+B) Or just copy the 5 files over your working tree — they're laid out
+   here at their real repo-relative paths, so extracting this zip on top
+   of a beta-26 checkout overwrites exactly those files.
+
+WHAT CHANGED (beta 27)
+----------------------
+1. Monster right-click "Copy Details" now copies the FULL dossier
+   (attack rows + Damage vs Mob + Scripting + Lair Stats) as text,
+   via MainViewModel.MonsterDetailText + the public FlattenDossier
+   helper. Closes the S44 row-summary divergence. (MonsterVerbose.cs,
+   MainWindow.xaml.cs)
+2. The combat block's best-effort catch now prints one quiet
+   "(combat estimate unavailable)" line instead of letting the whole
+   Damage/Scripting/Lair section vanish silently. (MonsterVerbose.cs)
+3. +2 tests (858/858 total): MonsterDetailText_FlattensFullDossier and
+   FlattenDossier_ShapesHeadersDetailsAndSpacers. (Wave18AttackPanelTests.cs)
+4. PORT_LOG.md / FEATURE_CENSUS.md updated.

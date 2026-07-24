@@ -27,8 +27,10 @@ VB6-exact per-step banker's accumulation).
   - [DONE] Spells grid: Mark/Unmark Spell as Learned (✓ Lrn column),
     Set as Combat Attack/Heal Spell, Set as Bless Spell, Copy
     Name(s)/Details; Options → Clear Learned Spells
-  - [DONE] Monsters grid: Copy Name(s), Copy Details (row-summary form;
-    dossier abilities/drops in the copy = DIVERGENCE, pending)
+  - [DONE] Monsters grid: Copy Name(s), Copy Details (Beta 27: now
+    copies the FULL flattened dossier — attack rows + Damage vs Mob +
+    Scripting + Lair Stats — via MonsterDetailText/FlattenDossier;
+    the S44 row-summary divergence is closed)
   - [DONE Beta 11] Items: Calc Swings / Calc Backstab ctx
   - [DONE S44 Wave H] Spells: What Casts This? → resolved-reference
     results window (lean GetLocations: Monster/Item/Spell/Shop #,
@@ -91,6 +93,15 @@ VB6-exact per-step banker's accumulation).
   Encumbrance line; live-panel encum now feeds the profile.
 - [MISSING] MME-export paste keys (CurrentENC + coin-weight keys);
   EndCast recursion in cast text (shared with monster-detail gap).
+
+## Monster combat dossier (S46 beta 26)
+- [DONE] Damage vs Mob (weapon desc + swings/crit/hit detail + RTK/RTD
+  + immune:MagicLVL), Damage vs Lair, Scripting Estimate (exp/hr + the
+  %-breakdown details), full Lair Stats block incl. jumpable Other Lair
+  Mobs. Dossier refreshes on UseCharacter/AttackMode change.
+- [MISSING] 500-round attack sim line (clsMonsterAttackSim wave);
+  OOM-rounds line (heal-cost global, menus wave); NMR Possy spawn-chance
+  variant (data absent).
 
 ## Grid icons v2 (S46 beta 25)
 - [DONE] Icons are hand-drawn vector geometry (no emoji font dependency,

@@ -1,0 +1,201 @@
+diff --git a/PORT_LOG.md b/PORT_LOG.md
+index 52f11c1..e2aa567 100644
+--- a/PORT_LOG.md
++++ b/PORT_LOG.md
+@@ -1,5 +1,56 @@
+ # PORT LOG (append-only; newest session at top)
+ 
++## Session 46 (cont.) — 2026-07-24 — BETA 27: monster "Copy Details" → full dossier; combat-block failure made visible; ship-label correction
++
++SHIP-LABEL CORRECTION (housekeeping): the prior turn packaged the repo —
++which ALREADY contained the beta-26 combat-dossier code — under the
++label "beta 25" with a README that only described the beta-25 icon work
++and never mentioned the dossier. Verified on disk this session: the
++dossier feature is real and complete, suite was 856/856. So beta 25's
++zip actually shipped beta-26 code under-described. Beta 27 supersedes it
++with an accurate name + README covering both the dossier and this run.
++
++UX AUDIT (before building anything):
++- Dossier color coding verified sound. The attack-line template's
++  DataTriggers (red/poison/confusion/hdr) all resolve to ThemePalette
++  keys (ThDmgRed/ThUsableGreen/ThConfusionOrange), and BOTH the Classic
++  and Dark dictionaries carry an identical 43-key set (checked by diff),
++  so no invisible-color regression like the beta-25 icons' ThFg bug. The
++  kinds attack/manual/norm intentionally fall through to ThGridFg.
++
++MONSTER "COPY DETAILS" → FULL DOSSIER (closes the S44 DIVERGENCE):
++- Was: GridMonsters ctx Copy Details emitted a one-line row summary
++  (Exp/HP/AC-DR/Dodge/MR/Damage); "abilities/drops in the copy = pending".
++- Now: MainViewModel.MonsterDetailText (in MainViewModel.MonsterVerbose.cs)
++  flattens the live _monsterAttackLines — the same list the verbose pane
++  renders — to plain text. Section headers (Label only) print as-is;
++  "Label: Text" rows join with ": "; detail rows (empty Label) indent 4
++  spaces; ("","") spacers become blank lines. FlattenDossier is a public
++  static pure helper. Reads the live lines, which the SelectedMonster
++  setter keeps in sync with GridMonsters.SelectedItem (two-way bound at
++  MainWindow.xaml :1348) — the identical contract WeaponDetailText uses.
++  So the copy always matches the displayed dossier (attack rows + the
++  beta-26 Damage vs Mob + Scripting + full Lair Stats), no rebuild, no
++  spurious change notification.
++- MainWindow.xaml.cs CtxCopyDetails_Click: the GridMonsters switch arm
++  now returns _vm.MonsterDetailText (RowName still prepends the monster
++  name, which the dossier lines omit).
++
++COMBAT-BLOCK FAILURE NOW VISIBLE (UX polish):
++- MainViewModel.MonsterVerbose.cs :198 — AppendCombatAndLairSections is
++  best-effort in a try/catch. It used to swallow silently, so any throw
++  made the ENTIRE Damage/Scripting/Lair block disappear with no trace
++  (the single biggest feature, gone mysteriously). The catch now appends
++  one quiet norm line "(combat estimate unavailable)" so the absence is
++  explained. Happy path unchanged (858/858 confirms the catch isn't hit).
++
++TESTS (+2 → 858/858):
++- MonsterDetailText_FlattensFullDossier: giant rat (1) — copy text is
++  multi-line, contains "(100%) bites you: Min-Max: 2-10", "Accuracy: 10",
++  and the beta-26 "Damage vs Mob" + "Lair Stats" headers.
++- FlattenDossier_ShapesHeadersDetailsAndSpacers: pure unit test of the
++  header / "Label: Text" / indented-continuation / blank-spacer shaping.
++
+ ## Session 46 (cont.) — 2026-07-07 — BETA 26: the deferred monster combat block (Damage vs Mob/Lair, Scripting Estimate, Lair Stats)
+ 
+ THE BIG DEFERRED FEATURE (agreed sessions ago): PullMonsterDetail
+diff --git a/FEATURE_CENSUS.md b/FEATURE_CENSUS.md
+index e17f24f..bb7e020 100644
+--- a/FEATURE_CENSUS.md
++++ b/FEATURE_CENSUS.md
+@@ -27,8 +27,10 @@ VB6-exact per-step banker's accumulation).
+   - [DONE] Spells grid: Mark/Unmark Spell as Learned (✓ Lrn column),
+     Set as Combat Attack/Heal Spell, Set as Bless Spell, Copy
+     Name(s)/Details; Options → Clear Learned Spells
+-  - [DONE] Monsters grid: Copy Name(s), Copy Details (row-summary form;
+-    dossier abilities/drops in the copy = DIVERGENCE, pending)
++  - [DONE] Monsters grid: Copy Name(s), Copy Details (Beta 27: now
++    copies the FULL flattened dossier — attack rows + Damage vs Mob +
++    Scripting + Lair Stats — via MonsterDetailText/FlattenDossier;
++    the S44 row-summary divergence is closed)
+   - [DONE Beta 11] Items: Calc Swings / Calc Backstab ctx
+   - [DONE S44 Wave H] Spells: What Casts This? → resolved-reference
+     results window (lean GetLocations: Monster/Item/Spell/Shop #,
+diff --git a/src/Mme.App.ViewModels/MainViewModel.MonsterVerbose.cs b/src/Mme.App.ViewModels/MainViewModel.MonsterVerbose.cs
+index d957bad..c0cc084 100644
+--- a/src/Mme.App.ViewModels/MainViewModel.MonsterVerbose.cs
++++ b/src/Mme.App.ViewModels/MainViewModel.MonsterVerbose.cs
+@@ -15,6 +15,32 @@ public partial class MainViewModel
+     public IReadOnlyList<DossierLine> MonsterAttackLines =>
+         _monsterAttackLines;
+ 
++    /// <summary>The full verbose dossier flattened to plain text for the
++    /// Monsters grid's right-click "Copy Details" (closes the S44
++    /// row-summary DIVERGENCE: abilities/drops/combat/scripting/lair now
++    /// copy too). Reads the live lines, which the SelectedMonster setter
++    /// keeps in sync with the grid selection — the same contract
++    /// WeaponDetailText uses for its grid.</summary>
++    public string MonsterDetailText => FlattenDossier(_monsterAttackLines);
++
++    /// <summary>Section headers carry their name in Label; detail rows use
++    /// an empty Label with Text; ("","") is a blank spacer. Render headers
++    /// as "Label: Text" (or just Label), continuation rows indented, and
++    /// spacers as blank lines — readable when pasted into Notepad.</summary>
++    public static string FlattenDossier(IReadOnlyList<DossierLine> lines)
++    {
++        var sb = new System.Text.StringBuilder();
++        foreach (var ln in lines)
++        {
++            bool hasL = ln.Label.Length > 0, hasT = ln.Text.Length > 0;
++            if (hasL && hasT) sb.Append(ln.Label).Append(": ").Append(ln.Text);
++            else if (hasL)    sb.Append(ln.Label);
++            else if (hasT)    sb.Append("    ").Append(ln.Text);
++            sb.Append("\r\n");
++        }
++        return sb.ToString().TrimEnd();
++    }
++
+     /// <summary>PullMonsterDetail (modMain :2534–3020 + the Greet and
+     /// Spawns-via rows), read line-by-line — the verbose attack section
+     /// the port was missing (S45 user report). Built LAZILY on monster
+@@ -169,8 +195,11 @@ public partial class MainViewModel
+         }
+ 
+         // Damage vs Mob/Lair + Scripting + Lair Stats (S46)
++        // Best-effort: the attack lines above always stand. If the combat
++        // math throws, say so with one quiet line rather than letting the
++        // whole Damage/Scripting/Lair block vanish without a trace.
+         try { AppendCombatAndLairSections(number, m, lines); }
+-        catch { /* combat block is best-effort; attack lines stay */ }
++        catch { lines.Add(new("", "(combat estimate unavailable)", "norm")); }
+ 
+         // Spawns via ... (PullMonsterDetail :3874) — resolved locations
+         if (m.SummonedBy.Length >= 5)
+diff --git a/src/Mme.App/MainWindow.xaml.cs b/src/Mme.App/MainWindow.xaml.cs
+index 7773a54..33c5212 100644
+--- a/src/Mme.App/MainWindow.xaml.cs
++++ b/src/Mme.App/MainWindow.xaml.cs
+@@ -662,11 +662,10 @@ public partial class MainWindow : Window
+             "GridSundry" => _vm.SundryDetailText,
+             "GridSpells" => _vm.SpellDetailText,
+             "GridIm" => _vm.ImDetailText,
+-            // Monsters: dossier isn't a flat text yet — copy the row
+-            // summary (DIVERGENCE logged S44; abilities/drops pending).
+-            "GridMonsters" when g.SelectedItem is Mme.Data.MonsterBrowseRow m
+-                => $"Exp: {m.Exp}  HP: {m.Hp}  AC/DR: {m.AcDr}  " +
+-                   $"Dodge: {m.Dodge}  MR: {m.Mr}  Damage: {m.Damage}",
++            // Monsters: the full verbose dossier (attack lines + combat /
++            // scripting / lair sections), flattened to text. Closes the
++            // S44 row-summary DIVERGENCE.
++            "GridMonsters" => _vm.MonsterDetailText,
+             _ => "",
+         };
+         string text = RowName(g.SelectedItem) +
+diff --git a/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs b/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+index e1cfa80..a0c3689 100644
+--- a/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
++++ b/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+@@ -3750,4 +3750,48 @@ public class Session46CombatDossierTests
+         Assert.Contains(lines, l => l.Label == "Scripting Estimate");
+         vm.Dispose();
+     }
++
++    // Beta 27: right-click "Copy Details" for a monster now flattens the
++    // full dossier (attack rows + Damage vs Mob + Lair Stats) to text,
++    // closing the S44 row-summary DIVERGENCE.
++    [Fact]
++    public void MonsterDetailText_FlattensFullDossier()
++    {
++        if (!File.Exists(DbPath)) return;
++        var vm = new Mme.App.ViewModels.MainViewModel();
++        vm.OpenDatabase(DbPath);
++        vm.RebuildMonsterAttackLines(1);           // giant rat
++        string txt = vm.MonsterDetailText;
++
++        Assert.False(string.IsNullOrWhiteSpace(txt));
++        Assert.True(txt.Split('\n').Length > 3);   // multi-line, not a summary
++        // header:value rows join with ": " — the melee row survives the flatten
++        Assert.Contains("(100%) bites you: Min-Max: 2-10", txt);
++        // continuation rows keep their text (indented)
++        Assert.Contains("Accuracy: 10", txt);
++        // the beta-26 combat block is included in the copy
++        Assert.Contains("Damage vs Mob", txt);
++        Assert.Contains("Lair Stats", txt);
++        vm.Dispose();
++    }
++
++    [Fact]
++    public void FlattenDossier_ShapesHeadersDetailsAndSpacers()
++    {
++        var lines = new[]
++        {
++            new Mme.App.ViewModels.MainViewModel.DossierLine("Lair Stats", "", "hdr"),
++            new Mme.App.ViewModels.MainViewModel.DossierLine("Total Lairs", "4", "norm"),
++            new Mme.App.ViewModels.MainViewModel.DossierLine("", "detail row", "norm"),
++            new Mme.App.ViewModels.MainViewModel.DossierLine("", "", "norm"),
++            new Mme.App.ViewModels.MainViewModel.DossierLine("AVG HP", "22", "norm"),
++        };
++        string s = Mme.App.ViewModels.MainViewModel.FlattenDossier(lines);
++        var rows = s.Replace("\r", "").Split('\n');
++        Assert.Equal("Lair Stats", rows[0]);          // header, label only
++        Assert.Equal("Total Lairs: 4", rows[1]);       // label: text
++        Assert.Equal("    detail row", rows[2]);       // indented continuation
++        Assert.Equal("", rows[3]);                     // blank spacer preserved
++        Assert.Equal("AVG HP: 22", rows[4]);
++    }
+ }

@@ -3689,3 +3689,109 @@ public class Session45IconClassifyTests
         vm.Dispose();
     }
 }
+
+// ---- Session 46: monster combat dossier (Damage vs / Scripting / Lair Stats) ----
+public class Session46CombatDossierTests
+{
+    private const string DbPath = "/home/claude/mme/current/mmud-1.11p.db";
+
+    [Fact]
+    public void LairingMonster_GetsLairStatsBlock()
+    {
+        if (!File.Exists(DbPath)) return;
+        var vm = new Mme.App.ViewModels.MainViewModel { FilterDebounceMs = 0 };
+        vm.OpenDatabase(DbPath);
+        // find a stock monster with lair spawns (Group(lair) in Summoned By)
+        var mon = vm.Monsters.First(x =>
+            x.SummonedBy.Contains("Group(lair):") && x.Exp > 1 && x.Hp > 0);
+        vm.RebuildMonsterAttackLines(mon.Number);
+        var lines = vm.MonsterAttackLines;
+        Assert.Contains(lines, l => l.Label == "Lair Stats");
+        Assert.Contains(lines, l => l.Label == "Total Lairs"
+            && long.Parse(l.Text) > 0);
+        Assert.Contains(lines, l => l.Label == "AVG DMG/mob"
+            && l.Text.Contains("/mob/round"));
+        Assert.Contains(lines, l => l.Label == "AVG HP");
+        Assert.Contains(lines, l => l.Label == "AVG AC/DR" && l.Text.Contains('/'));
+        Assert.Contains(lines, l => l.Label == "ACC Maj/Max");
+        Assert.Contains(lines, l => l.Label == "AVG MR");
+        vm.Dispose();
+    }
+
+    [Fact]
+    public void DamageVsMob_RendersRoundLine_AndRtkRtd()
+    {
+        if (!File.Exists(DbPath)) return;
+        var vm = new Mme.App.ViewModels.MainViewModel { FilterDebounceMs = 0 };
+        vm.OpenDatabase(DbPath);
+        var mon = vm.Monsters.First(x => x.Hp > 0 && x.Exp > 1);
+        vm.RebuildMonsterAttackLines(mon.Number);
+        var lines = vm.MonsterAttackLines;
+        Assert.Contains(lines, l => l.Label == "Damage vs Mob"
+            && l.Text.Contains("/round"));
+        Assert.Contains(lines, l => l.Text.Contains("RTK")
+            || l.Text.Contains("RTD"));
+        vm.Dispose();
+    }
+
+    [Fact]
+    public void ScriptingEstimate_PresentForLairingMonster()
+    {
+        if (!File.Exists(DbPath)) return;
+        var vm = new Mme.App.ViewModels.MainViewModel { FilterDebounceMs = 0 };
+        vm.OpenDatabase(DbPath);
+        var mon = vm.Monsters.First(x =>
+            x.SummonedBy.Contains("Group(lair):") && x.Exp > 1 && x.Hp > 0
+            && x.RegenTime == 0);
+        vm.RebuildMonsterAttackLines(mon.Number);
+        var lines = vm.MonsterAttackLines;
+        Assert.Contains(lines, l => l.Label == "Scripting vs Lair"
+            || l.Label == "Scripting vs MOB" || l.Label == "Scripting");
+        Assert.Contains(lines, l => l.Label == "Scripting Estimate");
+        vm.Dispose();
+    }
+
+    // Beta 27: right-click "Copy Details" for a monster now flattens the
+    // full dossier (attack rows + Damage vs Mob + Lair Stats) to text,
+    // closing the S44 row-summary DIVERGENCE.
+    [Fact]
+    public void MonsterDetailText_FlattensFullDossier()
+    {
+        if (!File.Exists(DbPath)) return;
+        var vm = new Mme.App.ViewModels.MainViewModel();
+        vm.OpenDatabase(DbPath);
+        vm.RebuildMonsterAttackLines(1);           // giant rat
+        string txt = vm.MonsterDetailText;
+
+        Assert.False(string.IsNullOrWhiteSpace(txt));
+        Assert.True(txt.Split('\n').Length > 3);   // multi-line, not a summary
+        // header:value rows join with ": " — the melee row survives the flatten
+        Assert.Contains("(100%) bites you: Min-Max: 2-10", txt);
+        // continuation rows keep their text (indented)
+        Assert.Contains("Accuracy: 10", txt);
+        // the beta-26 combat block is included in the copy
+        Assert.Contains("Damage vs Mob", txt);
+        Assert.Contains("Lair Stats", txt);
+        vm.Dispose();
+    }
+
+    [Fact]
+    public void FlattenDossier_ShapesHeadersDetailsAndSpacers()
+    {
+        var lines = new[]
+        {
+            new Mme.App.ViewModels.MainViewModel.DossierLine("Lair Stats", "", "hdr"),
+            new Mme.App.ViewModels.MainViewModel.DossierLine("Total Lairs", "4", "norm"),
+            new Mme.App.ViewModels.MainViewModel.DossierLine("", "detail row", "norm"),
+            new Mme.App.ViewModels.MainViewModel.DossierLine("", "", "norm"),
+            new Mme.App.ViewModels.MainViewModel.DossierLine("AVG HP", "22", "norm"),
+        };
+        string s = Mme.App.ViewModels.MainViewModel.FlattenDossier(lines);
+        var rows = s.Replace("\r", "").Split('\n');
+        Assert.Equal("Lair Stats", rows[0]);          // header, label only
+        Assert.Equal("Total Lairs: 4", rows[1]);       // label: text
+        Assert.Equal("    detail row", rows[2]);       // indented continuation
+        Assert.Equal("", rows[3]);                     // blank spacer preserved
+        Assert.Equal("AVG HP: 22", rows[4]);
+    }
+}
