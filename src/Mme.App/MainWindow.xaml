@@ -1,0 +1,1672 @@
+<Window x:Class="Mme.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Mme.App"
+        xmlns:data="clr-namespace:Mme.Data;assembly=Mme.Data"
+        Title="MMUD-Mimic" Icon="app-icon.png" Width="1280" Height="760"
+        PreviewKeyDown="Window_TabHotkeys"
+        FontFamily="{DynamicResource ThFont}" FontSize="{DynamicResource ThFontSize}"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        MinWidth="1024" MinHeight="620"
+        WindowStartupLocation="CenterScreen">
+  <Window.Resources>
+    <local:InverseBoolConverter x:Key="InverseBool"/>
+    <local:SpellKindGeometryConverter x:Key="SpellGeo"/>
+    <local:SpellKindStrokeConverter x:Key="SpellStroke"/>
+    <local:SpellKindColorConverter x:Key="SpellGlyphColor"/>
+    <local:WeaponKindGeometryConverter x:Key="WeaponGeo"/>
+    <local:SlotGeometryConverter x:Key="SlotGeo"/>
+    <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+
+    <Style x:Key="DetailBox" TargetType="TextBox">
+      <Setter Property="IsReadOnly" Value="True"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+      <Setter Property="Background" Value="{DynamicResource ThGridBg}"/>
+      <Setter Property="Foreground" Value="{DynamicResource ThGridFg}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource ThBorder}"/>
+      <Setter Property="FontSize" Value="11"/>
+    </Style>
+
+    <!-- black terminal stat rows (EQ panel) -->
+    <Style x:Key="EqLbl" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="#00C8C8"/>
+      <Setter Property="FontFamily" Value="Courier New"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Margin" Value="8,1,4,1"/>
+    </Style>
+    <Style x:Key="EqVal" TargetType="TextBlock">
+      <EventSetter Event="MouseUp" Handler="EqStat_MouseUp"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="#00E000"/>
+      <Setter Property="FontFamily" Value="Courier New"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Margin" Value="0,1,10,1"/>
+    </Style>
+
+    <Style x:Key="DosLbl" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Margin" Value="0,1,8,1"/>
+      <Setter Property="VerticalAlignment" Value="Top"/>
+    </Style>
+    <Style x:Key="DosVal" TargetType="TextBlock">
+      <Setter Property="Margin" Value="0,1,0,1"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <!-- VB6 mnuItemsPopUp — Weapons/Armour/Sundry/Item Manager grids.
+         (Calculate Swings / BS Damage await their windows; census.) -->
+    <ContextMenu x:Key="ItemsCtxMenu">
+      <MenuItem Header="Equip / Unequip Item" Click="CtxEquip_Click"/>
+      <MenuItem Header="Add to Compare" Click="CtxAddCompare_Click"/>
+      <MenuItem Header="Add All to Compare" Click="CtxAddAllCompare_Click"/>
+      <Separator/>
+      <MenuItem Header="Copy Name(s) to Clipboard" Click="CtxCopyNames_Click"/>
+      <MenuItem Header="Copy Details to Clipboard" Click="CtxCopyDetails_Click"/>
+      <Separator/>
+      <MenuItem Header="Set Combat Backstab Weapon" Click="CtxSetBsWeapon_Click"/>
+      <MenuItem Header="Add to Item Manager" Click="CtxAddIm_Click"/>
+      <Separator/>
+      <MenuItem Header="Calc Swings" Click="CtxCalcSwings_Click"/>
+      <MenuItem Header="Calc Backstab" Click="CtxCalcBs_Click"/>
+    </ContextMenu>
+
+    <!-- VB6 mnuSpellsPopUp ("What casts this?" / counters: census). -->
+    <ContextMenu x:Key="SpellsCtxMenu">
+      <MenuItem Header="What Casts This?" Click="CtxWhatCasts_Click"/>
+      <Separator/>
+      <MenuItem Header="Mark/Unmark Spell as Learned" Click="CtxToggleLearned_Click"/>
+      <MenuItem Header="Set as Combat Attack/Heal Spell" Click="CtxSetCombatSpell_Click"/>
+      <MenuItem Header="Set as Bless Spell" Click="CtxSetBless_Click"/>
+      <Separator/>
+      <MenuItem Header="Add to Compare" Click="CtxAddCompare_Click"/>
+      <MenuItem Header="Add All to Compare" Click="CtxAddAllCompare_Click"/>
+      <Separator/>
+      <MenuItem Header="Copy Name(s) to Clipboard" Click="CtxCopyNames_Click"/>
+      <MenuItem Header="Copy Details to Clipboard" Click="CtxCopyDetails_Click"/>
+    </ContextMenu>
+
+    <!-- VB6 mnuAuxPopUp subset (summon lookup / hit calc: census). -->
+    <ContextMenu x:Key="ClassesCtxMenu">
+      <MenuItem Header="View Spellbook" Click="CtxViewSpellbook_Click"/>
+      <MenuItem Header="Copy Name(s) to Clipboard" Click="CtxCopyNames_Click"/>
+    </ContextMenu>
+
+    <ContextMenu x:Key="SundriesCtxMenu">
+      <MenuItem Header="View Chest Contents" Click="CtxChestContents_Click"/>
+      <MenuItem Header="Copy Chest to Clipboard" Click="CtxChestCopy_Click"/>
+      <Separator/>
+      <MenuItem Header="Copy Name(s) to Clipboard" Click="CtxCopyNames_Click"/>
+      <MenuItem Header="Copy Details to Clipboard" Click="CtxCopyDetails_Click"/>
+    </ContextMenu>
+
+    <ContextMenu x:Key="MonstersCtxMenu">
+      <MenuItem Header="Where/How is this Monster Summoned?" Click="CtxWhereSummoned_Click"/>
+      <MenuItem Header="Hit Calc vs Mob" Click="CtxHitCalcMob_Click"/>
+      <MenuItem Header="Attack Simulator" Click="CtxAttackSim_Click"/>
+      <Separator/>
+      <MenuItem Header="Add to Compare" Click="CtxAddCompare_Click"/>
+      <MenuItem Header="Add All to Compare" Click="CtxAddAllCompare_Click"/>
+      <Separator/>
+      <MenuItem Header="Copy Name(s) to Clipboard" Click="CtxCopyNames_Click"/>
+      <MenuItem Header="Copy Details to Clipboard" Click="CtxCopyDetails_Click"/>
+    </ContextMenu>
+  </Window.Resources>
+
+  <DockPanel>
+    <Menu DockPanel.Dock="Top">
+      <MenuItem Header="_File">
+        <MenuItem Header="_Open Database..." Click="OpenDatabase_Click"/>
+        <Separator/>
+        <Separator/>
+        <MenuItem Header="_Load Character..." Click="LoadCharacter_Click"/>
+        <MenuItem Header="_Paste Character..." Click="PasteCharacter_Click"/>
+        <MenuItem Header="_Save Character..." Click="SaveCharacter_Click"/>
+        <MenuItem Header="Spell _Book..." Click="SpellBook_Click"/>
+        <Separator/>
+        <MenuItem Header="E_xit" Click="Exit_Click"/>
+      </MenuItem>
+      <MenuItem Header="_Tools">
+        <MenuItem Header="_Hit Calculator..." Click="ToolHitCalc_Click"/>
+        <MenuItem Header="_Swing Calculator..." Click="ToolSwingCalc_Click"/>
+        <MenuItem Header="_Backstab Calculator..." Click="ToolBsCalc_Click"/>
+        <MenuItem Header="_Attack Simulator..." Click="ToolAttackSim_Click"/>
+        <Separator/>
+        <MenuItem Header="_Experience Calculator..." Click="ToolExpCalc_Click"/>
+        <MenuItem Header="_Coin Converter..." Click="ToolCoinConvert_Click"/>
+        <MenuItem Header="_Notepad..." Click="ToolNotepad_Click"/>
+      </MenuItem>
+      <MenuItem Header="_Options">
+        <MenuItem Header="Only show items that are _In Game"
+                  IsCheckable="True" IsChecked="{Binding OnlyInGame}"/>
+        <MenuItem Header="GMUD data version &gt; 1.85 (Quick &amp; Deadly /40)"
+                  IsCheckable="True" IsChecked="{Binding DatVerModern}"/>
+        <MenuItem Header="_Auto-save character on paste"
+                  IsCheckable="True" IsChecked="{Binding AutoSaveCharacter}"/>
+        <MenuItem Header="_GreaterMUD rules" IsCheckable="True"
+                  IsChecked="{Binding GreaterMud}"/>
+        <MenuItem Header="Disable _Kai auto-learn" IsCheckable="True"
+                  IsChecked="{Binding DisableKaiAutolearn}"/>
+        <Separator/>
+        <MenuItem Header="_Clear Learned Spells" Click="ClearLearned_Click"/>
+        <Separator/>
+        <MenuItem Header="Calc Monster Dmg vs C_har" Click="CalcDmgVsChar_Click"
+                  ToolTip="Runs the attack simulator for every monster against your calculated AC/DR/MR/Dodge (a few seconds)"/>
+        <MenuItem Header="Calc Monster Dmg vs Part_y" Click="CalcDmgVsParty_Click"
+                  ToolTip="Uses the party defense boxes on the Exp/Hr tab"/>
+        <MenuItem Header="Clear Calculated Monster Dmg" Click="ClearCalcDmg_Click"/>
+        <Separator/>
+        <MenuItem x:Name="MnuThemeClassic" Header="_Classic Theme"
+                  IsCheckable="True" Click="ThemeClassic_Click"/>
+        <MenuItem x:Name="MnuThemeDark" Header="_Dark Theme"
+                  IsCheckable="True" Click="ThemeDark_Click"/>
+      </MenuItem>
+      <MenuItem Header="_Help">
+        <MenuItem Header="About" IsEnabled="False"/>
+      </MenuItem>
+    </Menu>
+
+    <StatusBar DockPanel.Dock="Bottom">
+      <TextBlock Text="{Binding Status}"/>
+    </StatusBar>
+
+    <!-- header: global filter + DB banner -->
+    <Grid DockPanel.Dock="Top" Margin="4,2,4,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <GroupBox Grid.Column="0" Padding="4,0">
+        <GroupBox.Header>
+          <TextBlock Text="Global Filter + Use Character" Foreground="Green"
+                     FontWeight="Bold"/>
+        </GroupBox.Header>
+        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+          <CheckBox Content="Use Character" IsChecked="{Binding UseCharacter}"
+                    VerticalAlignment="Center"/>
+          <TextBlock Text="Level:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Text="{Binding CharLevel}" Width="34"/>
+          <TextBlock Text="Class:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <ComboBox Width="120" ItemsSource="{Binding ClassList}"
+                    IsEnabled="{Binding HasDatabase}"
+                    DisplayMemberPath="Name" SelectedValuePath="Number"
+                    SelectedValue="{Binding CharClassNumber}"/>
+          <TextBlock Text="Race:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <ComboBox Width="110" ItemsSource="{Binding RaceList}"
+                    IsEnabled="{Binding HasDatabase}"
+                    DisplayMemberPath="Name" SelectedValuePath="Number"
+                    SelectedValue="{Binding CharRaceNumber}"/>
+          <TextBlock Text="Align:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <ComboBox Width="76" SelectedIndex="{Binding CharAlignment}">
+            <ComboBoxItem Content="Any" Foreground="{DynamicResource ThAlignAny}"/>
+            <ComboBoxItem Content="Good" Foreground="{DynamicResource ThAlignGood}"/>
+            <ComboBoxItem Content="Neutral" Foreground="{DynamicResource ThAlignNeutral}"/>
+            <ComboBoxItem Content="Evil" Foreground="{DynamicResource ThAlignEvil}"/>
+          </ComboBox>
+          <TextBlock Text="Min lvl:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <TextBox Text="{Binding GlobalMinLevel}" Width="34"/>
+          <CheckBox Content="GMUD" IsChecked="{Binding GreaterMud}" Margin="12,0,0,0"
+                    VerticalAlignment="Center"/>
+        </StackPanel>
+      </GroupBox>
+      <GroupBox Grid.Column="1" Margin="6,0,0,0" Header="Database Version" Padding="0">
+        <TextBlock Text="{Binding Banner}" FontSize="19" FontWeight="Bold"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+      </GroupBox>
+    </Grid>
+
+    <!-- tab buttons -->
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,4,4,0">
+      <RadioButton x:Name="tabChar" Style="{StaticResource TabBtn}" Content="Char" Width="82"/>
+      <RadioButton x:Name="tabCmp" Style="{StaticResource TabBtn}" Content="&lt;-&gt;" Width="48"/>
+      <RadioButton x:Name="tabEq" Style="{StaticResource TabBtn}" Content="EQ" Width="70"/>
+      <RadioButton x:Name="tabLists" Style="{StaticResource TabBtn}" Content="Lists" Width="70"/>
+      <RadioButton x:Name="tabRoomsMap" Style="{StaticResource TabBtn}" Content="Rooms" Width="82"/>
+      <RadioButton x:Name="tabWeapons" Style="{StaticResource TabBtn}" Content="Weapons" Width="94"/>
+      <RadioButton x:Name="tabArmour" Style="{StaticResource TabBtn}" Content="Armour" Width="90"/>
+      <RadioButton x:Name="tabSpells" Style="{StaticResource TabBtn}" Content="Spells" Width="82"/>
+      <RadioButton x:Name="tabClassRace" Style="{StaticResource TabBtn}" Content="Class/Race" Width="98"/>
+      <RadioButton x:Name="tabSundry" Style="{StaticResource TabBtn}" Content="Sundry" Width="84"/>
+      <RadioButton x:Name="tabMonsters" Style="{StaticResource TabBtn}" Content="Monsters" Width="100" IsChecked="True"/>
+      <RadioButton x:Name="tabShops" Style="{StaticResource TabBtn}" Content="Shops" Width="82"/>
+      <RadioButton x:Name="tabExpHr" Style="{StaticResource TabBtn}" Content="Exp/Hr" Width="88"/>
+    </StackPanel>
+
+    <!-- panels -->
+    <Grid Margin="4">
+
+      <!-- ============================== CHAR ============================ -->
+      <GroupBox Visibility="{Binding IsChecked, ElementName=tabChar, Converter={StaticResource BoolToVis}}">
+        <GroupBox.Header>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="Character" VerticalAlignment="Center"/>
+            <Button Content="Paste Character" Margin="14,0,0,0" Padding="8,1"
+                    Click="PasteCharacter_Click"
+                    ToolTip="Paste your game output (stat / inventory / spells) to auto-populate"/>
+            <TextBox Width="140" Margin="10,0,0,0"
+                     Text="{Binding CharName, UpdateSourceTrigger=LostFocus}"
+                     ToolTip="Character name (saved in .mmec)"/>
+          </StackPanel>
+        </GroupBox.Header>
+        <Grid Margin="4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="270"/>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <GroupBox Grid.Column="0" Header="Stats" Padding="6">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,6,0,0">
+                <Button Content="Reload" Width="52" Click="StatsReload_Click" ToolTip="Restore stats from the last paste/load"/>
+                <Button Content="Reset" Width="48" Margin="4,0,0,0" Click="StatsReset_Click" ToolTip="Stats to race minimums"/>
+                <Button Content="Max" Width="42" Margin="4,0,0,0" Click="StatsMax_Click" ToolTip="Stats to race maximums"/>
+                <Button Content="CP" Width="36" Margin="10,0,0,0" Click="CopyCp_Click" ToolTip="Copy CP string to clipboard"/>
+                <Button Content="Reset Fields" Width="86" Margin="10,0,0,0" Click="ResetFields_Click"/>
+              </StackPanel>
+              <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+              <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+              <TextBlock Grid.Row="0" Text="Class:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <ComboBox Grid.Row="0" Grid.Column="1" ItemsSource="{Binding ClassList}"
+                        DisplayMemberPath="Name" SelectedValuePath="Number"
+                        SelectedValue="{Binding CharClassNumber}" Margin="0,2"/>
+              <TextBlock Grid.Row="1" Text="Race:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding RaceList}"
+                        DisplayMemberPath="Name" SelectedValuePath="Number"
+                        SelectedValue="{Binding CharRaceNumber}" Margin="0,2"/>
+              <TextBlock Grid.Row="2" Text="Level:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CharLevel}" Width="70"
+                       HorizontalAlignment="Left" Margin="0,2"/>
+                            <TextBlock Grid.Row="3" Text="Strength:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Text="{Binding CharStr}" Width="46" Margin="0,2"/>
+                <Button Content="-" Width="20" Margin="3,2,0,2" Click="StatMinus_Click" Tag="0"/>
+                <Button Content="+" Width="20" Margin="2,2,0,2" Click="StatPlus_Click" Tag="0"/>
+                <TextBlock Text="{Binding StatRanges[0]}" Margin="8,3,0,3" Opacity="0.65" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock Grid.Row="4" Text="Intellect:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Text="{Binding CharInt}" Width="46" Margin="0,2"/>
+                <Button Content="-" Width="20" Margin="3,2,0,2" Click="StatMinus_Click" Tag="1"/>
+                <Button Content="+" Width="20" Margin="2,2,0,2" Click="StatPlus_Click" Tag="1"/>
+                <TextBlock Text="{Binding StatRanges[1]}" Margin="8,3,0,3" Opacity="0.65" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock Grid.Row="5" Text="Willpower:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <StackPanel Grid.Row="5" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Text="{Binding CharWil}" Width="46" Margin="0,2"/>
+                <Button Content="-" Width="20" Margin="3,2,0,2" Click="StatMinus_Click" Tag="2"/>
+                <Button Content="+" Width="20" Margin="2,2,0,2" Click="StatPlus_Click" Tag="2"/>
+                <TextBlock Text="{Binding StatRanges[2]}" Margin="8,3,0,3" Opacity="0.65" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock Grid.Row="6" Text="Agility:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <StackPanel Grid.Row="6" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Text="{Binding CharAgi}" Width="46" Margin="0,2"/>
+                <Button Content="-" Width="20" Margin="3,2,0,2" Click="StatMinus_Click" Tag="3"/>
+                <Button Content="+" Width="20" Margin="2,2,0,2" Click="StatPlus_Click" Tag="3"/>
+                <TextBlock Text="{Binding StatRanges[3]}" Margin="8,3,0,3" Opacity="0.65" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock Grid.Row="7" Text="Health:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <StackPanel Grid.Row="7" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Text="{Binding CharHea}" Width="46" Margin="0,2"/>
+                <Button Content="-" Width="20" Margin="3,2,0,2" Click="StatMinus_Click" Tag="4"/>
+                <Button Content="+" Width="20" Margin="2,2,0,2" Click="StatPlus_Click" Tag="4"/>
+                <TextBlock Text="{Binding StatRanges[4]}" Margin="8,3,0,3" Opacity="0.65" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock Grid.Row="8" Text="Charm:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <StackPanel Grid.Row="8" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Text="{Binding CharCha}" Width="46" Margin="0,2"/>
+                <Button Content="-" Width="20" Margin="3,2,0,2" Click="StatMinus_Click" Tag="5"/>
+                <Button Content="+" Width="20" Margin="2,2,0,2" Click="StatPlus_Click" Tag="5"/>
+                <TextBlock Text="{Binding StatRanges[5]}" Margin="8,3,0,3" Opacity="0.65" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock Grid.Row="9" Text="Quickness:" FontWeight="Bold" Margin="0,3,8,3"/>
+              <StackPanel Grid.Row="9" Grid.Column="1" Orientation="Horizontal">
+                <TextBox Text="{Binding CharQuickness}" Width="46" Margin="0,2"/>
+              </StackPanel>
+            </Grid>
+            </DockPanel>
+          </GroupBox>
+
+          <StackPanel Grid.Column="1" Margin="6,0,0,0">
+            <GroupBox Header="Hit Points / Hit Point Regen" Padding="6">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="HP:" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding CharHp}" Width="64" Margin="4,0"/>
+                <TextBlock Text="Regen:" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <TextBox Text="{Binding CharHpRegen}" Width="52" Margin="4,0"/>
+              </StackPanel>
+            </GroupBox>
+            <GroupBox Header="Spellcasting / Mana / Mana Regen" Padding="6" Margin="0,4,0,0">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Text="Spellcasting:" FontWeight="Bold" VerticalAlignment="Center"/>
+                  <TextBox Text="{Binding CharSpellcasting}" Width="52" Margin="4,0"/>
+                  <TextBlock Text="Max Mana:" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                  <TextBox Text="{Binding CharMaxMana}" Width="52" Margin="4,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                  <TextBlock Text="Mana Regen:" FontWeight="Bold" VerticalAlignment="Center"/>
+                  <TextBox Text="{Binding CharManaRegen}" Width="52" Margin="4,0"/>
+                  <TextBlock Text="Meditate:" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                  <TextBox Text="{Binding CharMeditateRate}" Width="52" Margin="4,0"/>
+                </StackPanel>
+              </StackPanel>
+            </GroupBox>
+            <GroupBox Header="Dodge / Crits / Stealth" Padding="6" Margin="0,4,0,0">
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Dodge:" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBox Text="{Binding CharDodge}" Width="46" Margin="4,0"/>
+                <TextBlock Text="Crits:" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <TextBox Text="{Binding CharCrit}" Width="46" Margin="4,0"/>
+                <TextBlock Text="Stealth:" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                <TextBox Text="{Binding CharStealth}" Width="46" Margin="4,0"/>
+              </StackPanel>
+            </GroupBox>
+            <GroupBox Header="Computed (from class/race/level/stats + equipment)">
+            <StackPanel Margin="4">
+              <TextBlock Text="{Binding CharDerivedHp}" FontWeight="Bold"/>
+              <TextBlock Text="{Binding CharDerivedRest}" Margin="0,2,0,0"/>
+              <TextBlock Text="{Binding CharDerivedMana}" Margin="0,2,0,0"/>
+              <TextBlock Text="{Binding CharDerivedDodge}" Margin="0,2,0,0"/>
+              <TextBlock Text="{Binding CharDerivedPicklocks}" Margin="0,2,0,0"/>
+              <TextBlock Text="{Binding CharDerivedMr}" Margin="0,2,0,0"/>
+                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                  <CheckBox Content="Anti-Magic" IsChecked="{Binding CharAntiMagic}"
+                            VerticalAlignment="Center"
+                            ToolTip="chkCharAntiMagic — feeds the monster attack sim"/>
+                  <TextBlock Text="MR Override:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+                  <TextBox Width="44" Text="{Binding CharMrOverride, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="0 = use computed MR (txtCharMR)"/>
+                </StackPanel>
+              <TextBlock Text="{Binding CharDerivedCps}" Margin="0,6,0,0" FontWeight="Bold" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding ManaRegenNeeded}" Margin="0,4,0,0"/>
+            </StackPanel>
+          </GroupBox>
+
+          <GroupBox Header="Bless Spells (up to 10 active)">
+            <ItemsControl ItemsSource="{Binding BlessSlots}" Margin="4">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <ComboBox Margin="0,1,4,1" MinWidth="185"
+                            ItemsSource="{Binding Items}"
+                            DisplayMemberPath="Name" SelectedValuePath="Number"
+                            SelectedValue="{Binding Selected}"
+                            MaxDropDownHeight="360"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </GroupBox>
+
+          <GroupBox Header="Completed Quests" Margin="0,4,0,0">
+            <StackPanel Margin="4">
+<StackPanel IsEnabled="{Binding HasDatabase}">
+              <WrapPanel MaxWidth="400">
+                <CheckBox Content="Ice Sorceress" Margin="0,1,10,1" IsChecked="{Binding QuestIceSorceress}"/>
+                <CheckBox Content="High Druid" Margin="0,1,10,1" IsChecked="{Binding QuestHighDruid}"/>
+                <CheckBox Content="Red Dragon" Margin="0,1,10,1" IsChecked="{Binding QuestRedDragon}"/>
+                <CheckBox Content="Bishop" Margin="0,1,10,1" IsChecked="{Binding QuestBishop}"/>
+                <CheckBox Content="Apparatus" Margin="0,1,10,1" IsChecked="{Binding QuestApparatus}"/>
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                <CheckBox Content="2nd Align" VerticalAlignment="Center" IsChecked="{Binding QuestSecondAlign}"/>
+                <ComboBox Width="170" Margin="6,0,0,0" SelectedIndex="{Binding Quest2ndOption}">
+                  <ComboBoxItem Content="(nothing)"/>
+                  <ComboBoxItem Content="+1 max damage"/>
+                  <ComboBoxItem Content="+1 AC, +6 mana"/>
+                  <ComboBoxItem Content="+1 SC, +10 mana"/>
+                  <ComboBoxItem Content="+4 mana, +6 bs, +1 stealth"/>
+                  <ComboBoxItem Content="+10 bs, +2 stealth"/>
+                </ComboBox>
+              </StackPanel>
+              <WrapPanel MaxWidth="400" Margin="0,4,0,0"
+                         Visibility="{Binding GreaterMud, Converter={StaticResource BoolToVis}}">
+                <CheckBox Content="Opaline" Margin="0,1,10,1" IsChecked="{Binding QuestOpaline}"/>
+                <CheckBox Content="Cartographer" Margin="0,1,10,1" IsChecked="{Binding QuestCartographer}"/>
+                <CheckBox Content="Loremaster" Margin="0,1,10,1" IsChecked="{Binding QuestLoremaster}"/>
+              </WrapPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,2,0,0"
+                          Visibility="{Binding GreaterMud, Converter={StaticResource BoolToVis}}">
+                <CheckBox Content="6th Align" VerticalAlignment="Center" IsChecked="{Binding QuestSixthAlign}"/>
+                <ComboBox Width="120" Margin="6,0,8,0" SelectedIndex="{Binding Quest6thOption}">
+                  <ComboBoxItem Content="(nothing)"/>
+                  <ComboBoxItem Content="War/WH/Pal"/>
+                  <ComboBoxItem Content="Cleric/Warlock"/>
+                  <ComboBoxItem Content="Pri/Mage/Druid"/>
+                  <ComboBoxItem Content="Missy/Bard/Gyp"/>
+                  <ComboBoxItem Content="Thief/Nin/Ran"/>
+                  <ComboBoxItem Content="Mystic"/>
+                </ComboBox>
+                <CheckBox Content="Dread Wraith" VerticalAlignment="Center" IsChecked="{Binding QuestDreadWraith}"/>
+                <ComboBox Width="100" Margin="6,0,0,0" SelectedIndex="{Binding QuestDreadWraithOption}">
+                  <ComboBoxItem Content="(nothing)"/>
+                  <ComboBoxItem Content="Most classes"/>
+                  <ComboBoxItem Content="Witchunter"/>
+                  <ComboBoxItem Content="Pri/Mage/Druid"/>
+                </ComboBox>
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,2,0,0"
+                          Visibility="{Binding GreaterMud, Converter={StaticResource BoolToVis}}">
+                <CheckBox Content="Renfry" VerticalAlignment="Center" IsChecked="{Binding QuestRenfry}"/>
+                <ComboBox Width="150" Margin="6,0,0,0" SelectedIndex="{Binding QuestRenfryOption}">
+                  <ComboBoxItem Content="(nothing)"/>
+                  <ComboBoxItem Content="+enc, +1 max dmg"/>
+                  <ComboBoxItem Content="…and +10 str"/>
+                </ComboBox>
+              </StackPanel>
+            </StackPanel>
+
+                        </StackPanel>
+          </GroupBox>
+          </StackPanel>
+
+          <GroupBox Grid.Column="2" Header="Combat / Equipment Entries" Padding="6" Margin="6,0,0,0">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="70"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+              </Grid.RowDefinitions>
+              <TextBlock Text="Accy:" FontWeight="Bold" Margin="0,3,6,3"/>
+              <TextBox Grid.Column="1" Text="{Binding CharAccuracy}" Margin="0,2"/>
+              <TextBlock Grid.Column="2" Text="HitMagic:" FontWeight="Bold" Margin="10,3,6,3"/>
+              <TextBox Grid.Column="3" Text="{Binding CharHitMagic}" Margin="0,2"/>
+              <TextBlock Grid.Row="1" Text="HM (fists):" FontWeight="Bold" Margin="0,3,6,3"/>
+              <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding CharHitMagicNonWeapon}" Margin="0,2"/>
+              <TextBlock Grid.Row="1" Grid.Column="2" Text="SpDmg%:" FontWeight="Bold" Margin="10,3,6,3"/>
+              <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding CharSpellDmgBonus}" Margin="0,2"/>
+              <TextBlock Grid.Row="2" Text="+MinDmg:" FontWeight="Bold" Margin="0,3,6,3"/>
+              <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CharPlusMinDamage}" Margin="0,2"/>
+              <TextBlock Grid.Row="2" Grid.Column="2" Text="+MaxDmg:" FontWeight="Bold" Margin="10,3,6,3"/>
+              <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding CharPlusMaxDamage}" Margin="0,2"/>
+              <TextBlock Grid.Row="3" Text="+BS Accy:" FontWeight="Bold" Margin="0,3,6,3"/>
+              <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CharPlusBsAccy}" Margin="0,2"/>
+              <TextBlock Grid.Row="3" Grid.Column="2" Text="+BS Min:" FontWeight="Bold" Margin="10,3,6,3"/>
+              <TextBox Grid.Row="3" Grid.Column="3" Text="{Binding CharPlusBsMinDmg}" Margin="0,2"/>
+              <TextBlock Grid.Row="4" Text="+BS Max:" FontWeight="Bold" Margin="0,3,6,3"/>
+              <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CharPlusBsMaxDmg}" Margin="0,2"/>
+              <TextBlock Grid.Row="4" Grid.Column="2" Text="Encum:" FontWeight="Bold" Margin="10,3,6,3"/>
+              <StackPanel Grid.Row="4" Grid.Column="3" Orientation="Horizontal">
+                <TextBox Text="{Binding CharEncumCurrent}" Width="32" Margin="0,2"/>
+                <TextBlock Text="/" Margin="2,3"/>
+                <TextBox Text="{Binding CharEncumMax}" Width="32" Margin="0,2"/>
+              </StackPanel>
+              <TextBlock Grid.Row="5" Text="MA Skill P/K/J:" FontWeight="Bold" Margin="0,3,6,3"/>
+              <StackPanel Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal">
+                <TextBox Text="{Binding MaSkillPunch}" Width="40" Margin="0,2,4,2"/>
+                <TextBox Text="{Binding MaSkillKick}" Width="40" Margin="0,2,4,2"/>
+                <TextBox Text="{Binding MaSkillJumpkick}" Width="40" Margin="0,2"/>
+              </StackPanel>
+              <TextBlock Grid.Row="6" Text="MA Dmg:" FontWeight="Bold" Margin="0,3,6,3"/>
+              <StackPanel Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal">
+                <TextBox Text="{Binding MaDmgPunch}" Width="40" Margin="0,2,4,2"/>
+                <TextBox Text="{Binding MaDmgKick}" Width="40" Margin="0,2,4,2"/>
+                <TextBox Text="{Binding MaDmgJumpkick}" Width="40" Margin="0,2"/>
+              </StackPanel>
+              <TextBlock Grid.Row="7" Text="MA Accy:" FontWeight="Bold" Margin="0,3,6,3"/>
+              <StackPanel Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3" Orientation="Horizontal">
+                <TextBox Text="{Binding MaAccyPunch}" Width="40" Margin="0,2,4,2"/>
+                <TextBox Text="{Binding MaAccyKick}" Width="40" Margin="0,2,4,2"/>
+                <TextBox Text="{Binding MaAccyJumpkick}" Width="40" Margin="0,2"/>
+              </StackPanel>
+              <StackPanel Grid.Row="8" Grid.ColumnSpan="5" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,6,0,0">
+                <CheckBox Content="Auto-fill from EQ tab (worn equipment)" VerticalAlignment="Center"
+                          IsChecked="{Binding UseEqForCombatEntries}"
+                          ToolTip="Live-links these entries to the EQ tab's worn-equipment calculator"/>
+                <Button Content="Pull now" Width="70" Margin="10,0,0,0" Click="PullFromEq_Click"
+                        ToolTip="One-shot copy of the computed EQ values into these boxes"/>
+              </StackPanel>
+            </Grid>
+          </GroupBox>
+        </Grid>
+      </GroupBox>
+
+      <!-- =============================== EQ ============================= -->
+      <!-- VB6: cmbEquip(0..19) + lblInvenCharStat black panel, computed by
+           CalcCharacterStats (EquipmentStatsService port). -->
+      <GroupBox Header="Item Manager"
+                Visibility="{Binding IsChecked, ElementName=tabLists, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="4">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+            <TextBlock Text="Item #:" VerticalAlignment="Center"/>
+            <TextBox Width="70" Margin="4,0,0,0"
+                     Text="{Binding ImAddNumberText, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="ImAdd_KeyDown"/>
+            <Button Content="Add" Width="44" Margin="4,0,0,0" Click="ImAdd_Click"/>
+            <Button Content="Import Paste..." Width="100" Margin="12,0,0,0"
+                    Click="ImImport_Click"
+                    ToolTip="Import equipped/inventory/keys/ground from a game-text paste"/>
+            <Button Content="Remove Selected" Width="110" Margin="12,0,0,0"
+                    Click="ImRemove_Click"/>
+            <Button Content="Clear Non-Flagged" Width="118" Margin="6,0,0,0"
+                    Click="ImClear_Click"
+                    ToolTip="Rows with a Flag (e.g. CARRIED, STASH) survive"/>
+            <TextBlock Text="{Binding ImSummary}" VerticalAlignment="Center"
+                       Margin="16,0,0,0" Foreground="{DynamicResource ThHelper}"/>
+          </StackPanel>
+          <DataGrid Grid.Row="1" x:Name="GridIm" AutoGenerateColumns="False"
+                    ContextMenu="{StaticResource ItemsCtxMenu}"
+                    ItemsSource="{Binding ImRows}" CanUserAddRows="False"
+                    SelectionMode="Extended" SelectionChanged="ImGrid_SelectionChanged"
+                    HeadersVisibility="Column" GridLinesVisibility="Horizontal"
+                    RowHeight="20" FontSize="12">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" IsReadOnly="True" Width="52"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" IsReadOnly="True" Width="190"/>
+              <DataGridTextColumn Header="Flag" Binding="{Binding Flag, UpdateSourceTrigger=LostFocus}" Width="76"/>
+              <DataGridTextColumn Header="QTY" Binding="{Binding Qty}" Width="42"/>
+              <DataGridTextColumn Header="Source" Binding="{Binding Source}" IsReadOnly="True" Width="70"/>
+              <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" IsReadOnly="True" Width="50"/>
+              <DataGridTextColumn Header="Type" Binding="{Binding Type}" IsReadOnly="True" Width="64"/>
+              <DataGridTextColumn Header="Worn" Binding="{Binding Worn}" IsReadOnly="True" Width="80"/>
+              <DataGridTextColumn Header="Usable" Binding="{Binding Usable}" IsReadOnly="True" Width="52"/>
+              <DataGridTextColumn Header="Value" Binding="{Binding Value}" IsReadOnly="True" Width="150"
+                                  SortMemberPath="SortCopper"/>
+              <DataGridTextColumn Header="Shop" Binding="{Binding Shop}" IsReadOnly="True" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBlock Grid.Row="2" Text="Detail / Locations" FontWeight="Bold" Margin="0,6,0,2"/>
+          <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="2*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBox IsReadOnly="True" Text="{Binding ImDetailText, Mode=OneWay}"
+                     FontFamily="Consolas" FontSize="12" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" Margin="0,0,6,0"/>
+            <ListBox Grid.Column="1" ItemsSource="{Binding ImLocations}"/>
+          </Grid>
+        </Grid>
+      </GroupBox>
+
+      <GroupBox Header="{Binding MapCaption}"
+                Visibility="{Binding IsChecked, ElementName=tabRoomsMap, Converter={StaticResource BoolToVis}}">
+        <DockPanel Margin="4">
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+            <TextBlock Text="Map:" VerticalAlignment="Center"/>
+            <TextBox Width="44" Margin="4,0,0,0" x:Name="TxtMapNum"
+                     Text="{Binding MapNumText, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="MapJump_KeyDown" ToolTip="Map number — Tab to room, Enter to go"/>
+            <TextBlock Text="Room:" VerticalAlignment="Center" Margin="6,0,0,0"/>
+            <TextBox Width="58" Margin="4,0,0,0" x:Name="TxtRoomNum"
+                     Text="{Binding RoomNumText, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="MapJump_KeyDown" ToolTip="Room number — Enter to go"/>
+            <Button Content="Go" Width="40" Margin="4,0,0,0" Click="MapGo_Click"/>
+            <Button Content="◀ Back" Width="60" Margin="10,0,0,0" Click="MapBack_Click"/>
+            <TextBlock Text="Find:" VerticalAlignment="Center" Margin="14,0,4,0"/>
+            <TextBox Width="120" Text="{Binding MapSearchText, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="MapFind_KeyDown" ToolTip="Room name search — Enter finds, F3 finds next"/>
+            <Button Content="Find" Width="44" Margin="4,0,0,0" Click="MapFind_Click"/>
+            <Button Content="Next" Width="44" Margin="4,0,0,0" Click="MapFindNext_Click"/>
+            <Button Content="Exits..." Width="52" Margin="4,0,0,0" Click="MapFindExits_Click"
+                    ToolTip="Find rooms by name with an exact set of exits"/>
+            <Button Content="Leads Here" Width="80" Margin="10,0,0,0" Click="MapLeadsHere_Click"
+                    ToolTip="Every room with an exit into the current room"/>
+            <TextBlock Text="Preset:" VerticalAlignment="Center" Margin="14,0,4,0"/>
+            <ComboBox x:Name="CmbPresets" Width="130"
+                      ItemsSource="{Binding MapPresets}" DisplayMemberPath="Name"
+                      DropDownOpened="MapPreset_DropDownOpened"
+                      SelectionChanged="MapPreset_SelectionChanged"/>
+            <Button Content="Save" Width="44" Margin="4,0,0,0" Click="MapPresetSave_Click"
+                    ToolTip="Save the current room as a named preset"/>
+            <TextBlock Text="Mark:" VerticalAlignment="Center" Margin="14,0,4,0"/>
+            <ComboBox Width="80" SelectedIndex="{Binding MapAlsoMark}">
+              <ComboBoxItem Content="None"/>
+              <ComboBoxItem Content="Shops"/>
+              <ComboBoxItem Content="Spells"/>
+            </ComboBox>
+          </WrapPanel>
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+            <CheckBox Content="Follow Map Changes" Margin="0,0,10,2" IsChecked="{Binding MapFollowMapChanges}"/>
+            <CheckBox Content="Not Hidden" Margin="0,0,10,2" IsChecked="{Binding MapNotHidden}"/>
+            <CheckBox Content="Not Lairs" Margin="0,0,10,2" IsChecked="{Binding MapNotLairs}"/>
+            <CheckBox Content="Not NPCs" Margin="0,0,10,2" IsChecked="{Binding MapNotNpcs}"/>
+            <CheckBox Content="Not Commands" Margin="0,0,10,2" IsChecked="{Binding MapNotCommands}"/>
+            <CheckBox Content="No Tips" Margin="0,0,10,2" IsChecked="{Binding MapNoTips}"/>
+            <CheckBox Content="All Exits in Tooltip" Margin="0,0,10,2" IsChecked="{Binding MapShowAllExits}"/>
+            <CheckBox Content="Allow Dupes" Margin="0,0,10,2" IsChecked="{Binding MapAllowDupes}"/>
+            <CheckBox Content="Allow Overwrite" Margin="0,0,10,2" IsChecked="{Binding MapAllowOverwrite}"/>
+            <CheckBox Content="Not Restricted" Margin="0,0,10,2" IsChecked="{Binding MapNotRestricted}"/>
+          </WrapPanel>
+          <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
+            <TextBlock Text="Blocks:" FontWeight="Bold" Margin="0,0,6,0"/>
+            <Border Background="#C0C0C0" Width="14" Height="14"/><TextBlock Text=" no U/D   " />
+            <Border Background="#00FF00" Width="14" Height="14"/><TextBlock Text=" Up   "/>
+            <Border Background="#FFFF00" Width="14" Height="14"/><TextBlock Text=" Down   "/>
+            <Border Background="#00FFFF" Width="14" Height="14"/><TextBlock Text=" Up+Down   "/>
+            <TextBlock Text="Marks:" FontWeight="Bold" Margin="8,0,6,0"/>
+            <TextBlock Text="◯ lair (magenta)  ∘ NPC (red)  ■ commands (green)  ★ shop/spell (cyan)"/>
+          </StackPanel>
+          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                        Focusable="False">
+            <local:MapCanvas x:Name="TheMap" Focusable="True"
+                             ToolTipService.ShowDuration="60000"/>
+          </ScrollViewer>
+        </DockPanel>
+      </GroupBox>
+
+      <GroupBox Header="Compare Lists"
+                Visibility="{Binding IsChecked, ElementName=tabCmp, Converter={StaticResource BoolToVis}}">
+        <TabControl Margin="2">
+          <TabItem Header="Weapons">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2">
+                <Button Content="Add All from Weapons list" Width="170"
+                        Click="CmpAddAllWeapons_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Refresh" Width="70" Margin="6,0,0,0"
+                        Click="CmpRefresh_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Clear" Width="60" Margin="6,0,0,0"
+                        Click="CmpClearWeapons_Click"/>
+                <TextBlock VerticalAlignment="Center" Margin="10,0,0,0"
+                           Foreground="{DynamicResource ThHelper}"
+                           Text="Right-click a weapon → Add to Compare, or Add All here. Double-click to jump."/>
+              </StackPanel>
+              <DataGrid ItemsSource="{Binding CompareWeapons}" AutoGenerateColumns="False"
+                        IsReadOnly="True" GridLinesVisibility="Horizontal"
+                        HeadersVisibility="Column" FontSize="12"
+                        MouseDoubleClick="CmpWeapon_DoubleClick" x:Name="GridCmpWeapons">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="150"/>
+                  <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="70"/>
+                  <DataGridTextColumn Header="Min" Binding="{Binding Min}" Width="42"/>
+                  <DataGridTextColumn Header="Max" Binding="{Binding Max}" Width="42"/>
+                  <DataGridTextColumn Header="Spd" Binding="{Binding Speed}" Width="42"/>
+                  <DataGridTextColumn Header="Lvl" Binding="{Binding Lvl}" Width="40"/>
+                  <DataGridTextColumn Header="Str" Binding="{Binding Str}" Width="40"/>
+                  <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" Width="44"/>
+                  <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="56"/>
+                  <DataGridTextColumn Header="Acc" Binding="{Binding Acc}" Width="42"/>
+                  <DataGridTextColumn Header="BS" Binding="{Binding Bs}" Width="56"/>
+                  <DataGridTextColumn Header="Crit" Binding="{Binding Crits}" Width="42"/>
+                  <DataGridTextColumn Header="Lim" Binding="{Binding Limit}" Width="40"/>
+                  <DataGridTextColumn Header="Dmg/Spd" Binding="{Binding DmgSpd}" Width="66"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Armour">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2">
+                <Button Content="Add All from Armour list" Width="170"
+                        Click="CmpAddAllArmour_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Refresh" Width="70" Margin="6,0,0,0"
+                        Click="CmpRefresh_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Clear" Width="60" Margin="6,0,0,0"
+                        Click="CmpClearArmour_Click"/>
+              </StackPanel>
+              <DataGrid ItemsSource="{Binding CompareArmour}" AutoGenerateColumns="False"
+                        IsReadOnly="True" GridLinesVisibility="Horizontal"
+                        HeadersVisibility="Column" FontSize="12"
+                        MouseDoubleClick="CmpArmour_DoubleClick" x:Name="GridCmpArmour">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="160"/>
+                  <DataGridTextColumn Header="Worn" Binding="{Binding Worn}" Width="80"/>
+                  <DataGridTextColumn Header="Type" Binding="{Binding ArmrType}" Width="70"/>
+                  <DataGridTextColumn Header="Lvl" Binding="{Binding Lvl}" Width="42"/>
+                  <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" Width="46"/>
+                  <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="60"/>
+                  <DataGridTextColumn Header="Acc" Binding="{Binding Acc}" Width="44"/>
+                  <DataGridTextColumn Header="Crit" Binding="{Binding Crits}" Width="44"/>
+                  <DataGridTextColumn Header="Lim" Binding="{Binding Limit}" Width="42"/>
+                  <DataGridTextColumn Header="AC/Enc" Binding="{Binding AcPerEnc}" Width="64"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Spells">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2">
+                <Button Content="Add All from Spells list" Width="170"
+                        Click="CmpAddAllSpells_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Refresh" Width="70" Margin="6,0,0,0"
+                        Click="CmpRefresh_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Clear" Width="60" Margin="6,0,0,0"
+                        Click="CmpClearSpells_Click"/>
+              </StackPanel>
+              <DataGrid ItemsSource="{Binding CompareSpells}" AutoGenerateColumns="False"
+                        IsReadOnly="True" GridLinesVisibility="Horizontal"
+                        HeadersVisibility="Column" FontSize="12" x:Name="GridCmpSpells">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="170"/>
+                  <DataGridTextColumn Header="Lvl" Binding="{Binding ReqLevel}" Width="44"/>
+                  <DataGridTextColumn Header="Mana" Binding="{Binding ManaCost}" Width="52"/>
+                  <DataGridTextColumn Header="Min" Binding="{Binding MinBase}" Width="46"/>
+                  <DataGridTextColumn Header="Max" Binding="{Binding MaxBase}" Width="46"/>
+                  <DataGridTextColumn Header="Dur" Binding="{Binding Dur}" Width="46"/>
+                  <DataGridTextColumn Header="Magery" Binding="{Binding Magery}" Width="60"/>
+                  <DataGridTextColumn Header="Classes" Binding="{Binding Classes}" Width="160"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </TabItem>
+          <TabItem Header="Monsters">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="2">
+                <Button Content="Add All from Monsters list" Width="170"
+                        Click="CmpAddAllMonsters_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Refresh" Width="70" Margin="6,0,0,0"
+                        Click="CmpRefresh_Click" IsEnabled="{Binding HasDatabase}"/>
+                <Button Content="Clear" Width="60" Margin="6,0,0,0"
+                        Click="CmpClearMonsters_Click"/>
+              </StackPanel>
+              <DataGrid ItemsSource="{Binding CompareMonsters}" AutoGenerateColumns="False"
+                        IsReadOnly="True" GridLinesVisibility="Horizontal"
+                        HeadersVisibility="Column" FontSize="12" x:Name="GridCmpMonsters">
+                <DataGrid.Columns>
+                  <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="170"/>
+                  <DataGridTextColumn Header="HP" Binding="{Binding Hp}" Width="60"/>
+                  <DataGridTextColumn Header="Exp" Binding="{Binding Exp}" Width="72"/>
+                  <DataGridTextColumn Header="AC" Binding="{Binding ArmourClass}" Width="46"/>
+                  <DataGridTextColumn Header="DR" Binding="{Binding DamageResist}" Width="46"/>
+                  <DataGridTextColumn Header="MR" Binding="{Binding MagicRes}" Width="46"/>
+                  <DataGridTextColumn Header="AvgDmg" Binding="{Binding AvgDmg}" Width="64"/>
+                  <DataGridTextColumn Header="Lim" Binding="{Binding GameLimit}" Width="44"/>
+                </DataGrid.Columns>
+              </DataGrid>
+            </DockPanel>
+          </TabItem>
+        </TabControl>
+      </GroupBox>
+      <GroupBox Header="EQ"
+                Visibility="{Binding IsChecked, ElementName=tabEq, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="4">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+
+          <!-- equip slot combos: ONE straight-down column (the OG layout) -->
+          <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Top">
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+            <TextBlock Text="Hold:" VerticalAlignment="Center" Margin="0,0,4,0"
+                       ToolTip="Held slots survive Paste Character"/>
+            <Button Content="All" Width="40" Click="EqHoldAll_Click"/>
+            <Button Content="None" Width="44" Margin="3,0,0,0" Click="EqHoldNone_Click"/>
+          </StackPanel>
+          <ItemsControl ItemsSource="{Binding EquipSlots}"
+                        IsEnabled="{Binding HasDatabase}"
+                        VerticalAlignment="Top" Margin="0,0,10,0">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate>
+                <StackPanel/>
+              </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <Grid Margin="0,1,8,1">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="66"/>
+                    <ColumnDefinition Width="190"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding Items}"
+                            DisplayMemberPath="Name" SelectedValuePath="Number"
+                            SelectedValue="{Binding Selected}" MaxDropDownHeight="360"/>
+                  <CheckBox Grid.Column="2" Margin="3,0,0,0" VerticalAlignment="Center"
+                            IsChecked="{Binding Hold}"
+                            ToolTip="Hold: this slot survives Paste Character"/>
+                  <Button Grid.Column="3" Content="&gt;" Width="18" Height="18"
+                          Margin="3,0,0,0" Padding="0" FontSize="10"
+                          Click="EquipJump_Click"
+                          ToolTip="Goto item / add to compare"/>
+                </Grid>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          </StackPanel>
+
+          <!-- computed stat panel (black terminal) + additional weight -->
+          <StackPanel Grid.Column="1" VerticalAlignment="Top">
+          <Border Background="Black" Padding="8">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="86"/>
+                <ColumnDefinition Width="Auto"/><ColumnDefinition Width="70"/>
+              </Grid.ColumnDefinitions>
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+              </Grid.RowDefinitions>
+
+              <TextBlock Style="{StaticResource EqLbl}" Text="Encumbrance:"/>
+              <TextBlock Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqEncumbrance}" ToolTip="{Binding EqEncumbranceTip}"/>
+              <TextBlock Grid.Column="2" Style="{StaticResource EqLbl}" Text="AC / DR:"/>
+              <TextBlock Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqAc}" Tag="2" ToolTip="{Binding EqAcTip}"/>
+
+              <TextBlock Grid.Row="1" Style="{StaticResource EqLbl}" Text="HitPoints:"/>
+              <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqHitPoints}" Tag="5" Foreground="{Binding EqHitPointsColor}" ToolTip="{Binding EqHitPointsTip}"/>
+              <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource EqLbl}" Text="HP Regen:"/>
+              <TextBlock Grid.Row="1" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqHpRegen}" Tag="16" Foreground="{Binding EqHpRegenColor}" ToolTip="{Binding EqHpRegenTip}"/>
+
+              <TextBlock Grid.Row="2" Style="{StaticResource EqLbl}" Text="Mana:"/>
+              <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqMana}" Tag="6" Foreground="{Binding EqManaColor}" ToolTip="{Binding EqManaTip}"/>
+              <TextBlock Grid.Row="2" Grid.Column="2" Style="{StaticResource EqLbl}" Text="Mana Regen:"/>
+              <TextBlock Grid.Row="2" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqManaRegen}" Tag="17" Foreground="{Binding EqManaRegenColor}" ToolTip="{Binding EqManaRegenTip}"/>
+
+              <TextBlock Grid.Row="3" Style="{StaticResource EqLbl}" Text="Crits:"/>
+              <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqCrits}" Tag="7" Foreground="{Binding EqCritsColor}" ToolTip="{Binding EqCritsTip}"/>
+              <TextBlock Grid.Row="3" Grid.Column="2" Style="{StaticResource EqLbl}" Text="Max Damage:"/>
+              <TextBlock Grid.Row="3" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqMaxDmg}" Tag="11" Foreground="{Binding EqMaxDmgColor}" ToolTip="{Binding EqMaxDmgTip}"/>
+
+              <TextBlock Grid.Row="4" Style="{StaticResource EqLbl}" Text="Dodge:"/>
+              <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource EqVal}"
+                         Text="{Binding EqDodge}" Tag="8" Foreground="{Binding EqDodgeColor}"
+                         ToolTip="{Binding EqDodgeTip}"/>
+              <TextBlock Grid.Row="4" Grid.Column="2" Style="{StaticResource EqLbl}" Text="Min Damage:"/>
+              <TextBlock Grid.Row="4" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqMinDmg}" Tag="30" Foreground="{Binding EqMinDmgColor}" ToolTip="{Binding EqMinDmgTip}"/>
+
+              <TextBlock Grid.Row="5" Style="{StaticResource EqLbl}" Text="SpellCast:"/>
+              <TextBlock Grid.Row="5" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqSpellCast}" Tag="9" Foreground="{Binding EqSpellCastColor}" ToolTip="{Binding EqSpellCastTip}"/>
+              <TextBlock Grid.Row="5" Grid.Column="2" Style="{StaticResource EqLbl}" Text="BS Accuracy:"/>
+              <TextBlock Grid.Row="5" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqBsAccy}" Tag="13" Foreground="{Binding EqBsAccyColor}" ToolTip="{Binding EqBsAccyTip}"/>
+
+              <TextBlock Grid.Row="6" Style="{StaticResource EqLbl}" Text="Accuracy:"/>
+              <TextBlock Grid.Row="6" Grid.Column="1" Style="{StaticResource EqVal}"
+                         Text="{Binding EqAccuracy}" Tag="10" Foreground="{Binding EqAccuracyColor}"
+                         ToolTip="{Binding EqAccuracyTip}"/>
+              <TextBlock Grid.Row="6" Grid.Column="2" Style="{StaticResource EqLbl}" Text="BS Min Damage:"/>
+              <TextBlock Grid.Row="6" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqBsMin}" Tag="14" Foreground="{Binding EqBsMinColor}" ToolTip="{Binding EqBsMinTip}"/>
+
+              <TextBlock Grid.Row="7" Style="{StaticResource EqLbl}" Text="Stealth:"/>
+              <TextBlock Grid.Row="7" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqStealth}" Tag="19" Foreground="{Binding EqStealthColor}" ToolTip="{Binding EqStealthTip}"/>
+              <TextBlock Grid.Row="7" Grid.Column="2" Style="{StaticResource EqLbl}" Text="BS Max Damage:"/>
+              <TextBlock Grid.Row="7" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqBsMax}" Tag="15" Foreground="{Binding EqBsMaxColor}" ToolTip="{Binding EqBsMaxTip}"/>
+
+              <TextBlock Grid.Row="8" Style="{StaticResource EqLbl}" Text="Quickness:"/>
+              <TextBlock Grid.Row="8" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqQuickness}" Tag="31" Foreground="{Binding EqQuicknessColor}"/>
+              <TextBlock Grid.Row="8" Grid.Column="2" Style="{StaticResource EqLbl}" Text="Hit Magic:"/>
+              <TextBlock Grid.Row="8" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqHitMagic}" Tag="12" Foreground="{Binding EqHitMagicColor}" ToolTip="{Binding EqHitMagicTip}"/>
+
+              <TextBlock Grid.Row="9" Style="{StaticResource EqLbl}" Text="Magic Res:"/>
+              <TextBlock Grid.Row="9" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqMr}" Tag="24" Foreground="{Binding EqMrColor}" ToolTip="{Binding EqMrTip}"/>
+              <TextBlock Grid.Row="9" Grid.Column="2" Style="{StaticResource EqLbl}" Text="Perception:"/>
+              <TextBlock Grid.Row="9" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqPerception}" Tag="18" Foreground="{Binding EqPerceptionColor}" ToolTip="{Binding EqPerceptionTip}"/>
+
+              <TextBlock Grid.Row="10" Style="{StaticResource EqLbl}" Text="Walk Speed:"/>
+              <TextBlock Grid.Row="10" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqWalkSpeed}"/>
+              <TextBlock Grid.Row="10" Grid.Column="2" Style="{StaticResource EqLbl}" Text="Bless Mana:"/>
+              <TextBlock Grid.Row="10" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqBlessMana}"/>
+
+              <TextBlock Grid.Row="11" Style="{StaticResource EqLbl}" Text="Attk:"/>
+              <TextBlock Grid.Row="11" Grid.Column="1" Grid.ColumnSpan="3"
+                         Style="{StaticResource EqVal}" Foreground="{DynamicResource ThWarnOrange}"
+                         Text="{Binding EqAttack}" Tag="46"/>
+            </Grid>
+          </Border>
+          <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+            <CheckBox Content="Use Additional Weight:"
+                      IsChecked="{Binding UseAddWeight}"
+                      VerticalAlignment="Center"
+                      ToolTip="Adds extra carried weight (beyond worn equipment) into the encumbrance used for swing speed and Quick &amp; Deadly. Paste Character fills this from your in-game Encumbrance line."/>
+            <TextBox Width="64" Margin="6,0,0,0" FontSize="11"
+                     Text="{Binding AddWeight, UpdateSourceTrigger=PropertyChanged}"/>
+          </StackPanel>
+          </StackPanel>
+
+          <StackPanel Grid.Column="2" Margin="10,0,0,0" VerticalAlignment="Top">
+            <Border Background="Black" Padding="8" HorizontalAlignment="Left">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="Auto"/><ColumnDefinition Width="55"/>
+                  <ColumnDefinition Width="55"/><ColumnDefinition Width="55"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Column="1" Style="{StaticResource EqLbl}" Text="Punch"/>
+                <TextBlock Grid.Column="2" Style="{StaticResource EqLbl}" Text="Kick"/>
+                <TextBlock Grid.Column="3" Style="{StaticResource EqLbl}" Text="JmpKck"/>
+                <TextBlock Grid.Row="1" Style="{StaticResource EqLbl}" Text="Skill"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillPunch}" Tag="37"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillKick}" Tag="38"/>
+                <TextBlock Grid.Row="1" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillJk}" Tag="39"/>
+                <TextBlock Grid.Row="2" Style="{StaticResource EqLbl}" Text="DMG"/>
+                <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqMaDmgPunch}" Tag="34"/>
+                <TextBlock Grid.Row="2" Grid.Column="2" Style="{StaticResource EqVal}" Text="{Binding EqMaDmgKick}" Tag="35"/>
+                <TextBlock Grid.Row="2" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqMaDmgJk}" Tag="36"/>
+                <TextBlock Grid.Row="3" Style="{StaticResource EqLbl}" Text="Accy"/>
+                <TextBlock Grid.Row="3" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqMaAccyPunch}" Tag="40"/>
+                <TextBlock Grid.Row="3" Grid.Column="2" Style="{StaticResource EqVal}" Text="{Binding EqMaAccyKick}" Tag="41"/>
+                <TextBlock Grid.Row="3" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqMaAccyJk}" Tag="42"/>
+              </Grid>
+            </Border>
+            <TextBlock Margin="2,10,0,2" FontWeight="Bold" Text="Carried Items"/>
+            <ItemsControl ItemsSource="{Binding CarriedRows}"
+                          IsEnabled="{Binding HasDatabase}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel Orientation="Horizontal" Margin="0,1,0,1">
+                    <TextBox Width="58" Text="{Binding Number, UpdateSourceTrigger=LostFocus}"
+                             ToolTip="Item number"/>
+                    <TextBlock Width="170" Margin="4,0,0,0" VerticalAlignment="Center"
+                               Text="{Binding Name}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="x" Margin="2,0,2,0" VerticalAlignment="Center"/>
+                    <TextBox Width="34" Text="{Binding Qty, UpdateSourceTrigger=LostFocus}"/>
+                    <TextBlock Width="46" Margin="6,0,0,0" VerticalAlignment="Center"
+                               Text="{Binding Enc}" ToolTip="Encumbrance" Foreground="{DynamicResource ThHelper}"/>
+                    <TextBlock Width="28" VerticalAlignment="Center"
+                               Text="{Binding Usable}" ToolTip="Usable by character"/>
+                    <TextBlock Width="150" VerticalAlignment="Center"
+                               Text="{Binding Value}" ToolTip="Best shop price: buy / sell (charm-adjusted)"
+                               TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Width="60" VerticalAlignment="Center" Foreground="{DynamicResource ThHelper}"
+                               Text="{Binding Shop}" ToolTip="Best shop number (+N more shops)"/>
+                    <Button Content="✕" Width="22" Margin="4,0,0,0" Padding="0"
+                            Click="RemoveCarried_Click"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Margin="2,10,0,2" FontWeight="Bold" Text="Find Best"/>
+            <StackPanel Orientation="Horizontal">
+              <ComboBox ItemsSource="{Binding FindBestCriteria}"
+                        SelectedItem="{Binding SelectedCriterion}" Width="150"
+                        DisplayMemberPath="Label" MaxDropDownHeight="400"
+                        IsEnabled="{Binding HasDatabase}"/>
+              <Button Content="Find Best" Width="76" Margin="6,0,0,0"
+                      Click="FindBest_Click" IsEnabled="{Binding HasDatabase}"/>
+              <Button Content="Next Best" Width="76" Margin="6,0,0,0"
+                      Click="NextBest_Click" IsEnabled="{Binding HasDatabase}"/>
+            </StackPanel>
+            <CheckBox Content="No limited items" Margin="2,3,0,0"
+                      IsChecked="{Binding NoLimitedItems}"/>
+            <TextBlock Margin="2,1,0,0" Foreground="{DynamicResource ThHelper}" FontSize="10"
+                       TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Left"
+                       Text="Best fills every unheld slot; Next Best steps down through alternatives for the same criterion."/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+              <Button Content="Add carried item" Width="130"
+                      Click="AddCarried_Click" IsEnabled="{Binding HasDatabase}"/>
+              <Button Content="Copy EQ/Stats to Clipboard" Width="170" Margin="8,0,0,0"
+                      Click="CopyEqStats_Click" IsEnabled="{Binding HasDatabase}"/>
+            </StackPanel>
+
+
+            <TextBlock Margin="2,4,0,2" FontWeight="Bold" Text="Manual Adjustments"/>
+            <TextBox Width="300" HorizontalAlignment="Left"
+                     Text="{Binding ManualAdjustments, UpdateSourceTrigger=LostFocus}"
+                     ToolTip="slot:value pairs, e.g. 2:10, 8:5  (AC/DR values are tenths)"/>
+            <TextBlock Margin="2,1,0,0" Foreground="{DynamicResource ThHelper}" FontSize="10"
+                       TextWrapping="Wrap" MaxWidth="400" HorizontalAlignment="Left"
+                       Text="slot:value pairs — 2 AC(tenths), 3 DR(tenths), 7 crits, 8 dodge, 10 accy, 24 MR…"/>
+
+            <TextBlock Margin="2,10,0,0" Foreground="{DynamicResource ThHelper}" TextWrapping="Wrap" MaxWidth="400"
+                       Text="Attk shows current attack mode vs a 50-MR target, like the original. Item picker dropdown for carried items is a later polish pass."/>
+          </StackPanel>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================= WEAPONS ========================== -->
+      <GroupBox Header="Weapons"
+                Visibility="{Binding IsChecked, ElementName=tabWeapons, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="130"/>
+          </Grid.RowDefinitions>
+          <StackPanel Orientation="Horizontal" Margin="2,0,2,3">
+            <TextBlock Text="Find:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox Width="150" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+            <CheckBox Content="1H Blunt" Margin="12,0,0,0" VerticalAlignment="Center" IsChecked="{Binding WpnShow1HBlunt}"/>
+            <CheckBox Content="2H Blunt" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding WpnShow2HBlunt}"/>
+            <CheckBox Content="1H Sharp" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding WpnShow1HSharp}"/>
+            <CheckBox Content="2H Sharp" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding WpnShow2HSharp}"/>
+            <CheckBox Content="Non-Magic" Margin="12,0,0,0" VerticalAlignment="Center" IsChecked="{Binding WpnNonMagicOnly}"/>
+            <CheckBox Content="BS-able" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding WpnBsOnly}"/>
+            <CheckBox Content="Limiteds" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding WpnShowLimiteds}"
+                      ToolTip="Unchecked hides limited-quantity items"/>
+            <TextBlock Text="Speed &lt;=" Margin="12,0,4,0" VerticalAlignment="Center"/>
+            <TextBox Width="44" Text="{Binding WpnMaxSpeed, UpdateSourceTrigger=PropertyChanged}" ToolTip="0 = off"/>
+            <TextBlock Text="STR &lt;=" Margin="8,0,4,0" VerticalAlignment="Center"/>
+            <TextBox Width="44" Text="{Binding WpnMaxStr, UpdateSourceTrigger=PropertyChanged}" ToolTip="0 = off"/>
+
+            <TextBlock Text="Ability:" Margin="12,0,4,0" VerticalAlignment="Center"/>
+            <ComboBox Width="150" ItemsSource="{Binding AbilityChoices}"
+                      DisplayMemberPath="Name" SelectedValuePath="Num"
+                      SelectedValue="{Binding WeaponAbility}"/>
+            <ComboBox Width="46" Margin="3,0,0,0" ItemsSource="{Binding AbilityOpChoices}"
+                      SelectedIndex="{Binding WeaponAbilityOp}"/>
+            <TextBox Width="44" Margin="3,0,0,0"
+                     Text="{Binding WeaponAbilityVal, UpdateSourceTrigger=PropertyChanged}"/>
+          </StackPanel>
+          <DataGrid Grid.Row="1" ItemsSource="{Binding WeaponRows}"
+                    x:Name="GridWeapons" SelectedItem="{Binding SelectedWeapon}"
+                    ContextMenu="{StaticResource ItemsCtxMenu}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="48"/>
+              <DataGridTemplateColumn Header="Edge" Width="46"
+                                      SortMemberPath="WeaponKind">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Path Data="{Binding WeaponKind, Converter={StaticResource WeaponGeo}}"
+                          Fill="{DynamicResource ThGridFg}" Stretch="Uniform"
+                          Width="15" Height="15" HorizontalAlignment="Center"
+                          ToolTip="{Binding WeaponKind}"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="190"/>
+              <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="68"/>
+              <DataGridTextColumn Header="Min" Binding="{Binding Min}" Width="42"/>
+              <DataGridTextColumn Header="Max" Binding="{Binding Max}" Width="42"/>
+              <DataGridTextColumn Header="Speed" Binding="{Binding Speed}" Width="52"/>
+              <DataGridTextColumn Header="LVL" Binding="{Binding Lvl}" Width="42"/>
+              <DataGridTextColumn Header="Str" Binding="{Binding Str}" Width="42"/>
+              <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" Width="48"/>
+              <DataGridTextColumn Header="AC" Binding="{Binding AcDr}" Width="52"/>
+              <DataGridTextColumn Header="Acc" Binding="{Binding Acc}" Width="42"/>
+              <DataGridTextColumn Header="BS" Binding="{Binding Bs}" Width="42"/>
+              <DataGridTextColumn Header="Crits" Binding="{Binding Crits}" Width="46"/>
+              <DataGridTextColumn Header="Limit" Binding="{Binding Limit}" Width="46"/>
+              <DataGridTextColumn Header="Dmg/Spd" Binding="{Binding DmgSpd, StringFormat=N1}" Width="62"/>
+              <DataGridTextColumn Header="#Swings" Binding="{Binding Swings, StringFormat=N2}" Width="62"/>
+              <DataGridTextColumn Header="xSwings" Binding="{Binding XSwings}" Width="62"/>
+              <DataGridTextColumn Header="Dmg/Rnd" Binding="{Binding DmgRnd}" Width="62"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
+                   Text="{Binding WeaponDetailText, Mode=OneWay}"
+                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================= ARMOUR =========================== -->
+      <GroupBox Header="Armour"
+                Visibility="{Binding IsChecked, ElementName=tabArmour, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="110"/>
+          </Grid.RowDefinitions>
+          <StackPanel Orientation="Horizontal" Margin="2,0,2,3">
+            <TextBlock Text="Find:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox Width="150" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="Worn On:" Margin="12,0,4,0" VerticalAlignment="Center"/>
+            <ComboBox Width="100" ItemsSource="{Binding ArmWornChoices}"
+                      SelectedItem="{Binding ArmWornFilter}" ToolTip="Blank = all slots"/>
+            <CheckBox Content="Natural" Margin="12,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmShowNatural}"/>
+            <CheckBox Content="Silk" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmShowSilk}"/>
+            <CheckBox Content="Ninja" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmShowNinja}"/>
+            <CheckBox Content="Leather" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmShowLeather}"/>
+            <CheckBox Content="Chain" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmShowChain}"/>
+            <CheckBox Content="Scale" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmShowScale}"/>
+            <CheckBox Content="Plate" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmShowPlate}"/>
+            <CheckBox Content="Non-Magic" Margin="12,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmNonMagicOnly}"/>
+            <CheckBox Content="No Limit" Margin="6,0,0,0" VerticalAlignment="Center" IsChecked="{Binding ArmNoLimitOnly}"
+                      ToolTip="Show only items without a game limit"/>
+            <TextBlock Text="Ability:" Margin="12,0,4,0" VerticalAlignment="Center"/>
+            <ComboBox Width="150" ItemsSource="{Binding AbilityChoices}"
+                      DisplayMemberPath="Name" SelectedValuePath="Num"
+                      SelectedValue="{Binding ArmourAbility}"/>
+            <ComboBox Width="46" Margin="3,0,0,0" ItemsSource="{Binding AbilityOpChoices}"
+                      SelectedIndex="{Binding ArmourAbilityOp}"/>
+            <TextBox Width="44" Margin="3,0,0,0"
+                     Text="{Binding ArmourAbilityVal, UpdateSourceTrigger=PropertyChanged}"/>
+          </StackPanel>
+          <DataGrid Grid.Row="1" ItemsSource="{Binding ArmourRows}"
+                    x:Name="GridArmour" SelectedItem="{Binding SelectedArmour}"
+                    ContextMenu="{StaticResource ItemsCtxMenu}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="48"/>
+              <DataGridTemplateColumn Header="Slot" Width="44"
+                                      SortMemberPath="Worn">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Path Data="{Binding SlotKey, Converter={StaticResource SlotGeo}}"
+                          Fill="{DynamicResource ThGridFg}" Stroke="{DynamicResource ThGridFg}"
+                          StrokeThickness="0.6" Stretch="Uniform"
+                          Width="15" Height="15" HorizontalAlignment="Center"
+                          ToolTip="{Binding Worn}"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
+              <DataGridTextColumn Header="Worn" Binding="{Binding Worn}" Width="72"/>
+              <DataGridTextColumn Header="Armr Type" Binding="{Binding ArmrType}" Width="80"/>
+              <DataGridTextColumn Header="Level" Binding="{Binding Lvl}" Width="46"/>
+              <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" Width="52"/>
+              <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="66"/>
+              <DataGridTextColumn Header="Acc" Binding="{Binding Acc}" Width="42"/>
+              <DataGridTextColumn Header="Crits" Binding="{Binding Crits}" Width="46"/>
+              <DataGridTextColumn Header="Limit" Binding="{Binding Limit}" Width="46"/>
+              <DataGridTextColumn Header="AC/Enc" Binding="{Binding AcPerEnc}" Width="62"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
+                   Text="{Binding ArmourDetailText, Mode=OneWay}"
+                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================= SPELLS =========================== -->
+      <GroupBox Header="Spells"
+                Visibility="{Binding IsChecked, ElementName=tabSpells, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="130"/>
+          </Grid.RowDefinitions>
+          <StackPanel Orientation="Horizontal" Margin="2,0,2,3">
+            <TextBlock Text="Find:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox Width="130" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="Magery:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+            <ComboBox Width="70" ItemsSource="{Binding SpellMageryChoices}"
+                      SelectedIndex="{Binding SpellMageryIndex}"/>
+            <TextBlock Text="Lvl:" Margin="5,0,3,0" VerticalAlignment="Center"/>
+            <ComboBox Width="52" ItemsSource="{Binding SpellMageryLevelChoices}"
+                      SelectedIndex="{Binding SpellMageryLevel}"/>
+            <TextBlock Text="Target:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+            <ComboBox Width="78" ItemsSource="{Binding SpellTargetChoices}"
+                      SelectedIndex="{Binding SpellTargetIndex}"/>
+            <TextBlock Text="Atk Type:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+            <ComboBox Width="96" ItemsSource="{Binding SpellAttackTypeChoices}"
+                      SelectedIndex="{Binding SpellAttackTypeIndex}"/>
+            <TextBlock Text="Ability:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+            <ComboBox Width="140" ItemsSource="{Binding AbilityChoices}"
+                      DisplayMemberPath="Name" SelectedValuePath="Num"
+                      SelectedValue="{Binding SpellContainsAbility}"/>
+            <CheckBox Content="Learnable Only" Margin="10,0,0,0" VerticalAlignment="Center"
+                      IsChecked="{Binding SpellLearnableOnly}"/>
+          </StackPanel>
+          <DataGrid Grid.Row="1" ItemsSource="{Binding Spells}" x:Name="GridSpells"
+                    SelectedItem="{Binding SelectedSpell}"
+                    ContextMenu="{StaticResource SpellsCtxMenu}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Lrn" Binding="{Binding Lrn}" Width="34"/>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="48"/>
+              <DataGridTemplateColumn Header="Element" Width="58"
+                                      SortMemberPath="DamageKind">
+                <DataGridTemplateColumn.CellTemplate>
+                  <DataTemplate>
+                    <Path Data="{Binding DamageKind, Converter={StaticResource SpellGeo}}"
+                          Fill="{Binding DamageKind, Converter={StaticResource SpellGlyphColor}}"
+                          Stroke="{Binding DamageKind, Converter={StaticResource SpellGlyphColor}}"
+                          StrokeThickness="1.4" Stretch="Uniform"
+                          Width="15" Height="15" HorizontalAlignment="Center"
+                          ToolTip="{Binding DamageKind}"/>
+                  </DataTemplate>
+                </DataGridTemplateColumn.CellTemplate>
+              </DataGridTemplateColumn>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="190"/>
+              <DataGridTextColumn Header="Short" Binding="{Binding Short}" Width="60"/>
+              <DataGridTextColumn Header="Magery" Binding="{Binding Magery}" Width="60"/>
+              <DataGridTextColumn Header="LVL" Binding="{Binding ReqLevel}" Width="42"/>
+              <DataGridTextColumn Header="Mana" Binding="{Binding ManaCost}" Width="48"/>
+              <DataGridTextColumn Header="Diff" Binding="{Binding Diff}" Width="42"/>
+              <DataGridTextColumn Header="Min" Binding="{Binding MinBase}" Width="42"/>
+              <DataGridTextColumn Header="Max" Binding="{Binding MaxBase}" Width="42"/>
+              <DataGridTextColumn Header="Dur" Binding="{Binding Dur}" Width="42"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
+                   Text="{Binding SpellDetailText, Mode=OneWay}"/>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================ CLASS/RACE ======================== -->
+      <GroupBox Header="Classes / Races"
+                Visibility="{Binding IsChecked, ElementName=tabClassRace, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <DataGrid Grid.Row="0" ItemsSource="{Binding ClassRows}" Margin="0,0,0,3"
+                    ContextMenu="{StaticResource ClassesCtxMenu}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="36"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="110"/>
+              <DataGridTextColumn Header="Exp" Binding="{Binding ExpPct}" Width="50"/>
+              <DataGridTextColumn Header="Weapon" Binding="{Binding Weapon}" Width="92"/>
+              <DataGridTextColumn Header="Armour" Binding="{Binding Armour}" Width="80"/>
+              <DataGridTextColumn Header="Magic" Binding="{Binding Magic}" Width="66"/>
+              <DataGridTextColumn Header="Cmbt" Binding="{Binding Cmbt}" Width="46"/>
+              <DataGridTextColumn Header="HP" Binding="{Binding Hp}" Width="46"/>
+              <DataGridTextColumn Header="Abilities" Binding="{Binding Abilities}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <DataGrid Grid.Row="1" ItemsSource="{Binding RaceRows}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="36"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="110"/>
+              <DataGridTextColumn Header="Exp" Binding="{Binding ExpPct}" Width="50"/>
+              <DataGridTextColumn Header="CP" Binding="{Binding BaseCp}" Width="46"/>
+              <DataGridTextColumn Header="Stats (min-max)" Binding="{Binding Stats}" Width="420"/>
+              <DataGridTextColumn Header="Abilities" Binding="{Binding Abilities}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================= SUNDRY =========================== -->
+      <GroupBox Header="Sundry"
+                Visibility="{Binding IsChecked, ElementName=tabSundry, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="110"/>
+          </Grid.RowDefinitions>
+          <StackPanel Orientation="Horizontal" Margin="2,0,2,3">
+            <TextBlock Text="Find:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox Width="180" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+          
+            <TextBlock Text="Ability:" Margin="12,0,4,0" VerticalAlignment="Center"/>
+            <ComboBox Width="150" ItemsSource="{Binding AbilityChoices}"
+                      DisplayMemberPath="Name" SelectedValuePath="Num"
+                      SelectedValue="{Binding SundryAbility}"/>
+            <ComboBox Width="46" Margin="3,0,0,0" ItemsSource="{Binding AbilityOpChoices}"
+                      SelectedIndex="{Binding SundryAbilityOp}"/>
+            <TextBox Width="44" Margin="3,0,0,0"
+                     Text="{Binding SundryAbilityVal, UpdateSourceTrigger=PropertyChanged}"/>
+          </StackPanel>
+          <DataGrid Grid.Row="1" ItemsSource="{Binding SundryRows}"
+                    x:Name="GridSundry" SelectedItem="{Binding SelectedSundry}"
+                    ContextMenu="{StaticResource SundriesCtxMenu}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="52"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="240"/>
+              <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="80"/>
+              <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" Width="56"/>
+              <DataGridTextColumn Header="Limit" Binding="{Binding Limit}" Width="50"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
+                   Text="{Binding SundryDetailText, Mode=OneWay}"
+                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================ MONSTERS ========================== -->
+      <GroupBox Header="Monsters"
+                Visibility="{Binding IsChecked, ElementName=tabMonsters, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="4"/>
+            <ColumnDefinition Width="360" MinWidth="220"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <StackPanel Orientation="Horizontal" Margin="2,0,2,3">
+            <RadioButton Content="By Mob" VerticalAlignment="Center" GroupName="MonMode"
+                         IsChecked="{Binding MonsterByLair, Converter={StaticResource InverseBool}}"/>
+            <RadioButton Content="By Lair" Margin="6,0,8,0" VerticalAlignment="Center" GroupName="MonMode"
+                         IsChecked="{Binding MonsterByLair}"
+                         ToolTip="Lair averages: HP/Damage show the * lair-avg; Exp/Hr and Recovery use the character (or party) profile"/>
+            <TextBlock Text="Find:" VerticalAlignment="Center" Margin="0,0,4,0"/>
+            <TextBox Width="120" Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="Regen" Margin="10,0,3,0" VerticalAlignment="Center"/>
+            <ComboBox Width="46" ItemsSource="{Binding MonRegenOpChoices}"
+                      SelectedIndex="{Binding MonRegenOp}"/>
+            <TextBox Width="40" Margin="3,0,0,0" Text="{Binding MonRegenVal, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="HP &lt;=" Margin="8,0,3,0" VerticalAlignment="Center"/>
+            <TextBox Width="52" Text="{Binding MonHpMax, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="DMG &lt;=" Margin="8,0,3,0" VerticalAlignment="Center"
+                       ToolTip="Uses calculated dmg vs char/party when computed (Options menu)"/>
+            <TextBox Width="52" Text="{Binding MonDmgMax, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="EXP &gt;=" Margin="8,0,3,0" VerticalAlignment="Center"/>
+            <TextBox Width="56" Text="{Binding MonExpMin, UpdateSourceTrigger=PropertyChanged}"/>
+            <CheckBox Content="Mag &lt;=" Margin="10,0,3,0" VerticalAlignment="Center"
+                      IsChecked="{Binding MonMagFilterOn}"/>
+            <TextBox Width="40" Text="{Binding MonMagMax, UpdateSourceTrigger=PropertyChanged}"/>
+            <Button Content="More Filters..." Margin="12,0,0,0" Padding="8,1"
+                    Click="MoreFilters_Click"/>
+            <Button Content="Clear Filters" Margin="6,0,0,0" Padding="8,1"
+                    Click="ClearFilters_Click"
+                    ToolTip="Clear the search box and reset all More Filters"/>
+          </StackPanel>
+          <DataGrid Grid.Row="1" ItemsSource="{Binding MonsterBrowse}"
+                    SelectedItem="{Binding SelectedMonster}" x:Name="GridMonsters"
+                    ContextMenu="{StaticResource MonstersCtxMenu}">
+            <DataGrid.RowStyle>
+              <!-- frmMain :6111 — Show All greys non-matching rows RGB(192,192,192) -->
+              <Style TargetType="DataGridRow" BasedOn="{StaticResource {x:Type DataGridRow}}">
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding DoesNotMatchFilter}" Value="True">
+                    <Setter Property="Foreground" Value="#C0C0C0"/>
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="48"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="170"/>
+              <DataGridTextColumn Header="Rgn" Binding="{Binding Rgn}" Width="38"/>
+              <DataGridTextColumn Header="Exp" Binding="{Binding Exp, StringFormat=N0}" Width="86"/>
+              <DataGridTextColumn Header="HP" Binding="{Binding HpText}" SortMemberPath="Hp" Width="56"/>
+              <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="58"/>
+              <DataGridTextColumn Header="Dodge" Binding="{Binding Dodge}" Width="50"/>
+              <DataGridTextColumn Header="MR" Binding="{Binding Mr}" Width="42"/>
+              <DataGridTextColumn Header="Damage" Binding="{Binding DamageText}" SortMemberPath="DamageResolved" Width="60"/>
+              <DataGridTextColumn Header="Exp/Hr | Exp/(D+H)" Binding="{Binding ExpRateText}" SortMemberPath="ExpHr" Width="96"/>
+              <DataGridTextColumn Header="Lair Exp | Rcvry" Binding="{Binding LairExpText}" SortMemberPath="LairExp" Width="82"/>
+              <DataGridTextColumn Header="Mag." Binding="{Binding Mag}" Width="42"/>
+              <DataGridTextColumn Header="Undead" Binding="{Binding Undead}" Width="52"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <GridSplitter Grid.Row="1" Grid.Column="1" Width="4"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        Background="{DynamicResource ThBorder}"/>
+          <Border Grid.Row="1" Grid.Column="2" Margin="4,0,0,0" BorderBrush="{DynamicResource ThBorder}"
+                  BorderThickness="1" Background="{DynamicResource ThGridBg}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="6">
+              <StackPanel DataContext="{Binding MonsterDossier}">
+                <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13"/>
+                <Grid Margin="0,4,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="92"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+                  <TextBlock Style="{StaticResource DosLbl}" Text="Experience"/>
+                  <TextBlock Grid.Column="1" Style="{StaticResource DosVal}" Text="{Binding Exp, StringFormat=N0}"/>
+                  <TextBlock Grid.Row="1" Style="{StaticResource DosLbl}" Text="Regen Time"/>
+                  <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource DosVal}" Text="{Binding RegenTime}"/>
+                  <TextBlock Grid.Row="2" Style="{StaticResource DosLbl}" Text="Game Limit"/>
+                  <TextBlock Grid.Row="2" Grid.Column="1" Style="{StaticResource DosVal}" Text="{Binding GameLimit}"/>
+                  <TextBlock Grid.Row="3" Style="{StaticResource DosLbl}" Text="Alignment"/>
+                  <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Alignment}">
+                    <TextBlock.Style>
+                      <Style TargetType="TextBlock" BasedOn="{StaticResource DosVal}">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding Alignment}" Value="Chaotic Evil">
+                            <Setter Property="Foreground" Value="#C05000"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding Alignment}" Value="Evil">
+                            <Setter Property="Foreground" Value="#C00000"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding Alignment}" Value="Neutral Evil">
+                            <Setter Property="Foreground" Value="#C00000"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding Alignment}" Value="Lawful Evil">
+                            <Setter Property="Foreground" Value="#C00000"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding Alignment}" Value="Good">
+                            <Setter Property="Foreground" Value="Green"/>
+                          </DataTrigger>
+                          <DataTrigger Binding="{Binding Alignment}" Value="Lawful Good">
+                            <Setter Property="Foreground" Value="Green"/>
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </TextBlock.Style>
+                  </TextBlock>
+                  <TextBlock Grid.Row="4" Style="{StaticResource DosLbl}" Text="HPs"/>
+                  <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource DosVal}" Text="{Binding Hp, StringFormat=N0}"/>
+                    <TextBlock Style="{StaticResource DosVal}" Text="{Binding HpRegen, StringFormat=' (Regens: {0})'}"/>
+                  </StackPanel>
+                  <TextBlock Grid.Row="5" Style="{StaticResource DosLbl}" Text="AC/DR"/>
+                  <TextBlock Grid.Row="5" Grid.Column="1" Style="{StaticResource DosVal}" Text="{Binding AcDr}"/>
+                  <TextBlock Grid.Row="6" Style="{StaticResource DosLbl}" Text="MR"/>
+                  <TextBlock Grid.Row="6" Grid.Column="1" Style="{StaticResource DosVal}" Text="{Binding Mr}"/>
+                  <TextBlock Grid.Row="7" Style="{StaticResource DosLbl}" Text="Follow %"/>
+                  <TextBlock Grid.Row="7" Grid.Column="1" Style="{StaticResource DosVal}" Text="{Binding FollowPct}"/>
+                  <TextBlock Grid.Row="8" Style="{StaticResource DosLbl}" Text="Charm LVL"/>
+                  <TextBlock Grid.Row="8" Grid.Column="1" Style="{StaticResource DosVal}" Text="{Binding CharmLvl}"/>
+                </Grid>
+                <TextBlock Style="{StaticResource DosLbl}" Text="Cash (up to)" Margin="0,6,0,0"/>
+                <TextBlock Style="{StaticResource DosVal}" Text="{Binding Cash}"/>
+                <TextBlock Style="{StaticResource DosLbl}" Text="BS Defense" Margin="0,6,0,0"/>
+                <TextBlock Style="{StaticResource DosVal}" Text="{Binding BsDefense}"/>
+                <TextBlock Style="{StaticResource DosLbl}" Text="Abilities" Foreground="{DynamicResource ThAccentBlue}" Margin="0,6,0,0"/>
+                <TextBlock Style="{StaticResource DosVal}" Text="{Binding Abilities}" Foreground="{DynamicResource ThAccentBlue}"/>
+                <TextBlock Style="{StaticResource DosLbl}" Text="Item Drops" Margin="0,6,0,0"/>
+                <ItemsControl ItemsSource="{Binding Drops}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <TextBlock Text="{Binding}" TextWrapping="Wrap"/>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Style="{StaticResource DosLbl}" Text="Mob's Attacks" Margin="0,6,0,0"/>
+                <TextBlock Style="{StaticResource DosVal}" Text="{Binding Energy, StringFormat='{}{0} energy/round'}"/>
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock Style="{StaticResource DosLbl}" Text="Dmg/Round"/>
+                  <TextBlock Style="{StaticResource DosVal}" Foreground="{DynamicResource ThAlignEvil}"
+                             Text="{Binding AvgDmg, StringFormat='AVG: {0:N1}'}"/>
+                </StackPanel>
+                <!-- S45: the verbose attack section (PullMonsterDetail) -->
+                <ItemsControl ItemsSource="{Binding DataContext.MonsterAttackLines,
+                                  RelativeSource={RelativeSource AncestorType=Window}}"
+                              Margin="0,8,0,0">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <Grid Background="Transparent"
+                            MouseLeftButtonDown="DossierLine_MouseDown">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="132"/>
+                          <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{Binding Label}" FontWeight="Bold"
+                                   FontSize="11" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource ThLabel}"/>
+                        <TextBlock Grid.Column="1" Text="{Binding Text}"
+                                   FontSize="11" TextWrapping="Wrap">
+                          <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                              <Setter Property="Foreground" Value="{DynamicResource ThGridFg}"/>
+                              <Style.Triggers>
+                                <DataTrigger Binding="{Binding Kind}" Value="red">
+                                  <Setter Property="Foreground" Value="{DynamicResource ThDmgRed}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="purple">
+                                  <Setter Property="Foreground" Value="{DynamicResource ThDmgPurple}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="party">
+                                  <Setter Property="Foreground" Value="{DynamicResource ThDmgParty}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="fear">
+                                  <Setter Property="Foreground" Value="{DynamicResource ThUnusableRed}"/>
+                                  <Setter Property="FontWeight" Value="Bold"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="poison">
+                                  <Setter Property="Foreground" Value="{DynamicResource ThUsableGreen}"/>
+                                  <Setter Property="FontWeight" Value="Bold"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="confusion">
+                                  <Setter Property="Foreground" Value="{DynamicResource ThConfusionOrange}"/>
+                                  <Setter Property="FontWeight" Value="Bold"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="green">
+                                  <Setter Property="Foreground" Value="{DynamicResource ThUsableGreen}"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="warn">
+                                  <Setter Property="FontWeight" Value="Bold"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Kind}" Value="hdr">
+                                  <Setter Property="FontWeight" Value="Bold"/>
+                                </DataTrigger>
+                              </Style.Triggers>
+                            </Style>
+                          </TextBlock.Style>
+                        </TextBlock>
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================== SHOPS =========================== -->
+      <GroupBox Header="Shops"
+                Visibility="{Binding IsChecked, ElementName=tabShops, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="330" MinWidth="220"/>
+            <ColumnDefinition Width="4"/>
+            <ColumnDefinition Width="*"/>
+          </Grid.ColumnDefinitions>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+          </Grid.RowDefinitions>
+          <DataGrid ItemsSource="{Binding ShopRows}" SelectedItem="{Binding SelectedShop}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="44"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180"/>
+              <DataGridTextColumn Header="Type" Binding="{Binding Type}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <GridSplitter Grid.Column="1" Grid.RowSpan="2" Width="4"
+                        HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                        Background="{DynamicResource ThBorder}"/>
+          <DataGrid Grid.Column="2" Margin="4,0,0,0" ItemsSource="{Binding ShopItemRows}">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="#" Binding="{Binding ItemNumber}" Width="52"/>
+              <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="220"/>
+              <DataGridTextColumn Header="Max" Binding="{Binding Max}" Width="44"/>
+              <DataGridTextColumn Header="Regen" Binding="{Binding Regen}" Width="130"/>
+              <DataGridTextColumn Header="Cost" Binding="{Binding Cost}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+          <TextBox Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource DetailBox}"
+                   Height="24" Margin="0,3,0,0" Text="{Binding ShopInfoText, Mode=OneWay}"/>
+        </Grid>
+      </GroupBox>
+
+      <!-- ============================= EXP/HR =========================== -->
+      <GroupBox Header="Exp per Hour (lairs)"
+                Visibility="{Binding IsChecked, ElementName=tabExpHr, Converter={StaticResource BoolToVis}}">
+        <Grid Margin="2">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <WrapPanel Margin="2">
+            <TextBlock Text="Dmg:" VerticalAlignment="Center" Margin="0,0,3,0"/>
+            <TextBox Text="{Binding CharDamage}" Width="52"/>
+            <TextBlock Text="Spell Dmg:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharSpellDamage}" Width="52"/>
+            <TextBlock Text="Surprise:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharSurpriseDamage}" Width="52"/>
+            <TextBlock Text="Surp.Min:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharSurpriseMinDamage}" Width="52"/>
+            <TextBlock Text="Surp.%:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharSurpriseChance}" Width="44"/>
+            <TextBlock Text="HP:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharHp}" Width="52"/>
+            <TextBlock Text="HP Rgn:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharHpRegen}" Width="46"/>
+            <TextBlock Text="Thresh:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharDamageThreshold}" Width="56"/>
+          </WrapPanel>
+          <WrapPanel Grid.Row="1" Margin="2">
+            <TextBlock Text="Attack:" VerticalAlignment="Center" Margin="0,0,3,0"/>
+            <ComboBox Width="120" ItemsSource="{Binding AttackModes}"
+                      SelectedValue="{Binding AttackMode}"
+                      DisplayMemberPath="Label" SelectedValuePath="Mode"/>
+            <TextBlock Text="Weapon #:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding AttackWeaponNumber}" Width="52"/>
+            <TextBlock Text="Spell #:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <ComboBox ItemsSource="{Binding AttackSpellOptions}"
+                      DisplayMemberPath="Name" SelectedValuePath="Number"
+                      SelectedValue="{Binding AttackSpellNumber}" Width="170"
+                      MaxDropDownHeight="360"
+                      ToolTip="Spell (learned mode lists only your pasted/loaded learned spells)"/>
+            <TextBlock Text="@Lvl:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding AttackSpellLevel}" Width="38"/>
+            <TextBlock Text="MA:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding AttackMartialArts}" Width="28"/>
+            <CheckBox Content="Backstab" IsChecked="{Binding AttackBackstab}"
+                      VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <TextBlock Text="BS Wpn #:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding AttackBackstabWeapon}" Width="52"/>
+            <CheckBox Content="Meditate" IsChecked="{Binding AttackUseMeditate}"
+                      VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <TextBlock Text="Spell Cost:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharSpellCost}" Width="46"/>
+            <TextBlock Text="Ovhd:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharSpellOverhead}" Width="46"/>
+            <TextBlock Text="Mana:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharMaxMana}" Width="46"/>
+            <TextBlock Text="MP Rgn:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharManaRegen}" Width="40"/>
+            <TextBlock Text="Med:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharMeditateRate}" Width="40"/>
+            <TextBlock Text="Walk Spd:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding CharWalkSpeed}" Width="46"/>
+            <TextBlock Text="Party:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Text="{Binding PartySize}" Width="34"/>
+            <TextBlock Text="AC:" VerticalAlignment="Center" Margin="8,0,3,0"/>
+            <TextBox Width="38" Text="{Binding PartyAc, UpdateSourceTrigger=PropertyChanged}" ToolTip="Party avg AC (0 = default)"/>
+            <TextBlock Text="DR:" VerticalAlignment="Center" Margin="5,0,3,0"/>
+            <TextBox Width="38" Text="{Binding PartyDr, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="MR:" VerticalAlignment="Center" Margin="5,0,3,0"/>
+            <TextBox Width="38" Text="{Binding PartyMr, UpdateSourceTrigger=PropertyChanged}" ToolTip="0 = default 50"/>
+            <TextBlock Text="Dodge:" VerticalAlignment="Center" Margin="5,0,3,0"/>
+            <TextBox Width="38" Text="{Binding PartyDodge, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="#AM:" VerticalAlignment="Center" Margin="5,0,3,0"/>
+            <TextBox Width="34" Text="{Binding PartyAntiMagicCount, UpdateSourceTrigger=PropertyChanged}" ToolTip="Party members with anti-magic"/>
+            <CheckBox Content="ExpMulti" IsChecked="{Binding UseExpMulti}"
+                      VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <CheckBox Content="Use Character" IsChecked="{Binding UseCharacter}"
+                      FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+          </WrapPanel>
+          <WrapPanel Grid.Row="2" Margin="2">
+            <CheckBox Content="GMUD" IsChecked="{Binding GreaterMud}"/>
+            <CheckBox Content="A" IsChecked="{Binding ModelA}" Margin="8,0,0,0"/>
+            <CheckBox Content="B" IsChecked="{Binding ModelB}" Margin="4,0,0,0"/>
+            <CheckBox Content="C" IsChecked="{Binding ModelC}" Margin="4,0,0,0"/>
+            <CheckBox Content="D" IsChecked="{Binding ModelD}" Margin="4,0,0,0"/>
+            <Button Content="Recalculate" Click="RecalculateLairs_Click"
+                    Padding="10,1" Margin="10,0,0,0"/>
+          </WrapPanel>
+          <DataGrid Grid.Row="3" ItemsSource="{Binding Lairs}" Margin="0,3,0,0">
+            <DataGrid.Columns>
+              <DataGridTextColumn Header="Monsters" Binding="{Binding Group}" Width="220"/>
+              <DataGridTextColumn Header="Group" Binding="{Binding GroupIndex}" Width="80"/>
+              <DataGridTextColumn Header="Mobs" Binding="{Binding Mobs}" Width="50"/>
+              <DataGridTextColumn Header="Lairs" Binding="{Binding Lairs}" Width="50"/>
+              <DataGridTextColumn Header="AvgExp" Binding="{Binding AvgExp, StringFormat=N0}" Width="80"/>
+              <DataGridTextColumn Header="Delay" Binding="{Binding AvgDelay, StringFormat=N1}" Width="56"/>
+              <DataGridTextColumn Header="Walk" Binding="{Binding Walk, StringFormat=N2}" Width="56"/>
+              <DataGridTextColumn Header="Exp/Hr" Binding="{Binding ExpPerHour, StringFormat=N0}" Width="88"/>
+              <DataGridTextColumn Header="RTC" Binding="{Binding Rtc, StringFormat=N1}" Width="52"/>
+              <DataGridTextColumn Header="Recovery" Binding="{Binding Recovery}" Width="180"/>
+              <DataGridTextColumn Header="Move" Binding="{Binding Move}" Width="*"/>
+            </DataGrid.Columns>
+          </DataGrid>
+        </Grid>
+      </GroupBox>
+    </Grid>
+  </DockPanel>
+</Window>

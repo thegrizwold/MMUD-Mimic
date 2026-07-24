@@ -93,7 +93,7 @@ public partial class MainWindow : Window
         var dlg = new SaveFileDialog
         {
             Title = "Save character",
-            Filter = "MMUD Explorer Character (*.mmec)|*.mmec|" +
+            Filter = "MMUD-Mimic Character (*.mmec)|*.mmec|" +
                      "Legacy INI (*.ini)|*.ini|All files (*.*)|*.*",
             FileName = _vm.CurrentCharacterFile is null ? "Character.mmec"
                 : System.IO.Path.GetFileName(_vm.CurrentCharacterFile),
@@ -111,7 +111,7 @@ public partial class MainWindow : Window
         var dlg = new OpenFileDialog
         {
             Title = "Load character",
-            Filter = "MMUD Explorer Character (*.mmec;*.ini)|*.mmec;*.ini|" +
+            Filter = "MMUD-Mimic Character (*.mmec;*.ini)|*.mmec;*.ini|" +
                      "All files (*.*)|*.*",
         };
         if (dlg.ShowDialog(this) == true)
@@ -277,7 +277,7 @@ public partial class MainWindow : Window
             string list = res.Tab.ToString().ToLowerInvariant();
             if (MessageBox.Show(
                     $"Item {n} was not found in the current {list} list.\n" +
-                    "Remove filter and try again?", "MMUD Explorer",
+                    "Remove filter and try again?", "MMUD-Mimic",
                     MessageBoxButton.YesNo, MessageBoxImage.Question)
                 != MessageBoxResult.Yes) return;
             res = _vm.JumpToItemUnfiltered(n);

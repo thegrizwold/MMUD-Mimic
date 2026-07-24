@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ApplicationIcon>app-icon.ico</ApplicationIcon>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>MMUD-Mimic</AssemblyName>
+    <AssemblyTitle>MMUD-Mimic</AssemblyTitle>
+    <Product>MMUD-Mimic</Product>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Mme.App.ViewModels\Mme.App.ViewModels.csproj" />
+    <PackageReference Include="System.Data.OleDb" Version="8.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="app-icon.png" />
+  </ItemGroup>
+</Project>

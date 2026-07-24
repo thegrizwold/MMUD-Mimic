@@ -1,36 +1,39 @@
-MME EXPLORER — BETA 27 CHANGES-ONLY PACKAGE
-===========================================
-Baseline: MmeExplorer-beta26 (the last full source release).
-This package contains ONLY the files that changed for beta 27, so you
-can commit the delta to GitHub without re-uploading the whole tree.
+MMUD-MIMIC — BETA 28 CHANGES-ONLY PACKAGE
+=========================================
+Baseline: beta 27 (last full source release).
+Beta 28 = rename "MMUD Explorer" -> "MMUD-Mimic" + new treasure-chest icon.
+No engine/data/logic changes; test suite unchanged at 858/858.
 
-CHANGED FILES (5, all modifications — nothing added or deleted):
-  PORT_LOG.md
-  FEATURE_CENSUS.md
-  src/Mme.App.ViewModels/MainViewModel.MonsterVerbose.cs
-  src/Mme.App/MainWindow.xaml.cs
-  tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+CHANGED FILES (9, all modifications):
+  TEXT (covered by beta28.patch):
+    PORT_LOG.md
+    FEATURE_CENSUS.md
+    README.md
+    src/Mme.App/App.xaml.cs
+    src/Mme.App/MainWindow.xaml
+    src/Mme.App/MainWindow.xaml.cs
+    src/Mme.App/Mme.App.csproj
+  BINARY (NOT patchable — copy these two files over directly):
+    src/Mme.App/app-icon.ico   (5-size treasure chest: 16/32/48/64/256)
+    src/Mme.App/app-icon.png   (256px window icon)
 
-TWO WAYS TO USE THIS
---------------------
-A) Apply the patch (recommended, from a clean beta-26 checkout):
-     git apply beta27.patch
-   (verified with `git apply --check`; `patch -p1 < beta27.patch` also works)
+APPLY
+-----
+A) From a clean beta-27 checkout:
+     git apply beta28.patch        # the 7 text files
+     # then copy the 2 icon files over (they can't live in a text patch):
+     cp src/Mme.App/app-icon.ico src/Mme.App/app-icon.png  <your-repo>/src/Mme.App/
+   (`git apply --check beta28.patch` verified clean.)
+B) Or just extract this whole zip on top of a beta-27 checkout — the 9
+   files are laid out at their real repo-relative paths and overwrite
+   exactly what changed (icons included).
 
-B) Or just copy the 5 files over your working tree — they're laid out
-   here at their real repo-relative paths, so extracting this zip on top
-   of a beta-26 checkout overwrites exactly those files.
-
-WHAT CHANGED (beta 27)
-----------------------
-1. Monster right-click "Copy Details" now copies the FULL dossier
-   (attack rows + Damage vs Mob + Scripting + Lair Stats) as text,
-   via MainViewModel.MonsterDetailText + the public FlattenDossier
-   helper. Closes the S44 row-summary divergence. (MonsterVerbose.cs,
-   MainWindow.xaml.cs)
-2. The combat block's best-effort catch now prints one quiet
-   "(combat estimate unavailable)" line instead of letting the whole
-   Damage/Scripting/Lair section vanish silently. (MonsterVerbose.cs)
-3. +2 tests (858/858 total): MonsterDetailText_FlattensFullDossier and
-   FlattenDossier_ShapesHeadersDetailsAndSpacers. (Wave18AttackPanelTests.cs)
-4. PORT_LOG.md / FEATURE_CENSUS.md updated.
+WHAT CHANGED
+------------
+* App renamed to MMUD-Mimic: window title, crash/error dialogs, the
+  character save/open dialog filters, and the executable (now
+  MMUD-Mimic.exe via <AssemblyName>). Namespaces / .sln / project
+  filenames are intentionally unchanged (internal only).
+* Docs (README/census) name the port MMUD-Mimic while still calling the
+  original VB6 tool "MMUD Explorer".
+* New pixel-art treasure-chest icon (.ico with 5 crisp sizes + 256 PNG).

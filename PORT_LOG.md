@@ -1,5 +1,41 @@
 # PORT LOG (append-only; newest session at top)
 
+## Session 46 (cont.) — 2026-07-24 — BETA 28: rename to "MMUD-Mimic" + treasure-chest icon
+
+User decided to rename the C# port from "MMUD Explorer" / "MajorMUD
+Explorer" to "MMUD-Mimic", and asked for a treasure-chest app icon.
+
+RENAME (user-visible branding of the PORT only; the original VB6 tool it
+mimics is still referred to as "MMUD Explorer" in docs):
+- MainWindow.xaml Title -> "MMUD-Mimic".
+- App.xaml.cs crash dialog caption + body, MainWindow.xaml.cs the
+  message-box caption and the two character-file dialog filters -> all
+  "MMUD-Mimic".
+- Mme.App.csproj: AssemblyTitle -> MMUD-Mimic; ADDED <AssemblyName>
+  MMUD-Mimic and <Product> MMUD-Mimic, so the published single-file exe
+  is now MMUD-Mimic.exe. (Namespaces, the .sln, and project filenames
+  are unchanged — internal identifiers, no user impact, zero refactor
+  risk.)
+- README.md title + FEATURE_CENSUS.md header updated to name the port
+  MMUD-Mimic while preserving the "VB6 MMUD Explorer" references to the
+  original. PORT_LOG's historical "Ships as MmeExplorer-betaN" lines are
+  left untouched (append-only history).
+
+ICON (pixel art, fits the retro MajorMUD asset style):
+- Hand-authored a 16x16 treasure chest (domed wooden lid, gold seam
+  band, a central gold strap running lid-through-body into a gold lock
+  plate with a keyhole, wood side-shading, dark outline pass), rendered
+  in /tmp and eyeballed at 256 before committing.
+- src/Mme.App/app-icon.ico rebuilt with FIVE crisp frames
+  (16/32/48/64/256; each a NEAREST upscale of the 16x16 so pixels stay
+  sharp) — Pillow's append_images path, verified the frame set landed
+  (the naive sizes= path had silently kept only 16x16).
+- src/Mme.App/app-icon.png (window title-bar icon) regenerated at 256.
+
+No engine/data/logic changes — purely branding + icon. Suite unchanged
+at 858/858 (rename touches only string literals + build props).
+Ships as MMUD-Mimic-beta28 (the app/zip naming switches to MMUD-Mimic).
+
 ## Session 46 (cont.) — 2026-07-24 — BETA 27: monster "Copy Details" → full dossier; combat-block failure made visible; ship-label correction
 
 SHIP-LABEL CORRECTION (housekeeping): the prior turn packaged the repo —

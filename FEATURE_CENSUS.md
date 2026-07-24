@@ -1,4 +1,4 @@
-# FEATURE CENSUS — VB6 MMUD Explorer → C# port
+# FEATURE CENSUS — VB6 MMUD Explorer → MMUD-Mimic (C# port)
 Status legend: DONE / PARTIAL / CODE-ONLY / MISSING / SKIP.
 CODE-ONLY = engine/VM support exists but there is NO UX for it.
 This file is the single source of truth for parity gaps. Updated from a

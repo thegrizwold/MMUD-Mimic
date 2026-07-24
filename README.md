@@ -1,6 +1,6 @@
-# MMUD Explorer — C#/.NET 8 rewrite
+# MMUD-Mimic — C#/.NET 8 rewrite of MMUD Explorer
 
-A ground-up port of the VB6 MMUD Explorer https://github.com/syntax53/MMUD-Explorer to C#/.NET 8, built for
+A ground-up port of the VB6 MMUD Explorer to C#/.NET 8, built for
 **bit-exact parity** with the original engine: every calculation was read
 from the VB6 source line-by-line before porting, VB6's arithmetic quirks
 (banker's rounding on CLng/CInt, Fix truncation, Currency semantics,

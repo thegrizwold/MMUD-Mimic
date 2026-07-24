@@ -1,0 +1,141 @@
+diff --git a/PORT_LOG.md b/PORT_LOG.md
+index e2aa567..8f38dc3 100644
+--- a/PORT_LOG.md
++++ b/PORT_LOG.md
+@@ -1,5 +1,41 @@
+ # PORT LOG (append-only; newest session at top)
+ 
++## Session 46 (cont.) — 2026-07-24 — BETA 28: rename to "MMUD-Mimic" + treasure-chest icon
++
++User decided to rename the C# port from "MMUD Explorer" / "MajorMUD
++Explorer" to "MMUD-Mimic", and asked for a treasure-chest app icon.
++
++RENAME (user-visible branding of the PORT only; the original VB6 tool it
++mimics is still referred to as "MMUD Explorer" in docs):
++- MainWindow.xaml Title -> "MMUD-Mimic".
++- App.xaml.cs crash dialog caption + body, MainWindow.xaml.cs the
++  message-box caption and the two character-file dialog filters -> all
++  "MMUD-Mimic".
++- Mme.App.csproj: AssemblyTitle -> MMUD-Mimic; ADDED <AssemblyName>
++  MMUD-Mimic and <Product> MMUD-Mimic, so the published single-file exe
++  is now MMUD-Mimic.exe. (Namespaces, the .sln, and project filenames
++  are unchanged — internal identifiers, no user impact, zero refactor
++  risk.)
++- README.md title + FEATURE_CENSUS.md header updated to name the port
++  MMUD-Mimic while preserving the "VB6 MMUD Explorer" references to the
++  original. PORT_LOG's historical "Ships as MmeExplorer-betaN" lines are
++  left untouched (append-only history).
++
++ICON (pixel art, fits the retro MajorMUD asset style):
++- Hand-authored a 16x16 treasure chest (domed wooden lid, gold seam
++  band, a central gold strap running lid-through-body into a gold lock
++  plate with a keyhole, wood side-shading, dark outline pass), rendered
++  in /tmp and eyeballed at 256 before committing.
++- src/Mme.App/app-icon.ico rebuilt with FIVE crisp frames
++  (16/32/48/64/256; each a NEAREST upscale of the 16x16 so pixels stay
++  sharp) — Pillow's append_images path, verified the frame set landed
++  (the naive sizes= path had silently kept only 16x16).
++- src/Mme.App/app-icon.png (window title-bar icon) regenerated at 256.
++
++No engine/data/logic changes — purely branding + icon. Suite unchanged
++at 858/858 (rename touches only string literals + build props).
++Ships as MMUD-Mimic-beta28 (the app/zip naming switches to MMUD-Mimic).
++
+ ## Session 46 (cont.) — 2026-07-24 — BETA 27: monster "Copy Details" → full dossier; combat-block failure made visible; ship-label correction
+ 
+ SHIP-LABEL CORRECTION (housekeeping): the prior turn packaged the repo —
+diff --git a/FEATURE_CENSUS.md b/FEATURE_CENSUS.md
+index bb7e020..784fafe 100644
+--- a/FEATURE_CENSUS.md
++++ b/FEATURE_CENSUS.md
+@@ -1,4 +1,4 @@
+-# FEATURE CENSUS — VB6 MMUD Explorer → C# port
++# FEATURE CENSUS — VB6 MMUD Explorer → MMUD-Mimic (C# port)
+ Status legend: DONE / PARTIAL / CODE-ONLY / MISSING / SKIP.
+ CODE-ONLY = engine/VM support exists but there is NO UX for it.
+ This file is the single source of truth for parity gaps. Updated from a
+diff --git a/README.md b/README.md
+index de86882..2910146 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# MMUD Explorer — C#/.NET 8 rewrite
++# MMUD-Mimic — C#/.NET 8 rewrite of MMUD Explorer
+ 
+ A ground-up port of the VB6 MMUD Explorer to C#/.NET 8, built for
+ **bit-exact parity** with the original engine: every calculation was read
+diff --git a/src/Mme.App/App.xaml.cs b/src/Mme.App/App.xaml.cs
+index 9a2fd22..c256a66 100644
+--- a/src/Mme.App/App.xaml.cs
++++ b/src/Mme.App/App.xaml.cs
+@@ -57,9 +57,9 @@ public partial class App : Application
+         DispatcherUnhandledException += (_, ex) =>
+         {
+             Log("FATAL (dispatcher): " + ex.Exception);
+-            MessageBox.Show("MMUD Explorer hit an unexpected error and " +
++            MessageBox.Show("MMUD-Mimic hit an unexpected error and " +
+                 "logged it to mme-log.txt next to the exe:\n\n" +
+-                ex.Exception.Message, "MMUD Explorer",
++                ex.Exception.Message, "MMUD-Mimic",
+                 MessageBoxButton.OK, MessageBoxImage.Error);
+             ex.Handled = true;
+         };
+diff --git a/src/Mme.App/MainWindow.xaml b/src/Mme.App/MainWindow.xaml
+index 839c710..73d41d1 100644
+--- a/src/Mme.App/MainWindow.xaml
++++ b/src/Mme.App/MainWindow.xaml
+@@ -3,7 +3,7 @@
+         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+         xmlns:local="clr-namespace:Mme.App"
+         xmlns:data="clr-namespace:Mme.Data;assembly=Mme.Data"
+-        Title="MMUD Explorer" Icon="app-icon.png" Width="1280" Height="760"
++        Title="MMUD-Mimic" Icon="app-icon.png" Width="1280" Height="760"
+         PreviewKeyDown="Window_TabHotkeys"
+         FontFamily="{DynamicResource ThFont}" FontSize="{DynamicResource ThFontSize}"
+         Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+diff --git a/src/Mme.App/MainWindow.xaml.cs b/src/Mme.App/MainWindow.xaml.cs
+index 33c5212..92f7d13 100644
+--- a/src/Mme.App/MainWindow.xaml.cs
++++ b/src/Mme.App/MainWindow.xaml.cs
+@@ -93,7 +93,7 @@ public partial class MainWindow : Window
+         var dlg = new SaveFileDialog
+         {
+             Title = "Save character",
+-            Filter = "MMUD Explorer Character (*.mmec)|*.mmec|" +
++            Filter = "MMUD-Mimic Character (*.mmec)|*.mmec|" +
+                      "Legacy INI (*.ini)|*.ini|All files (*.*)|*.*",
+             FileName = _vm.CurrentCharacterFile is null ? "Character.mmec"
+                 : System.IO.Path.GetFileName(_vm.CurrentCharacterFile),
+@@ -111,7 +111,7 @@ public partial class MainWindow : Window
+         var dlg = new OpenFileDialog
+         {
+             Title = "Load character",
+-            Filter = "MMUD Explorer Character (*.mmec;*.ini)|*.mmec;*.ini|" +
++            Filter = "MMUD-Mimic Character (*.mmec;*.ini)|*.mmec;*.ini|" +
+                      "All files (*.*)|*.*",
+         };
+         if (dlg.ShowDialog(this) == true)
+@@ -277,7 +277,7 @@ public partial class MainWindow : Window
+             string list = res.Tab.ToString().ToLowerInvariant();
+             if (MessageBox.Show(
+                     $"Item {n} was not found in the current {list} list.\n" +
+-                    "Remove filter and try again?", "MMUD Explorer",
++                    "Remove filter and try again?", "MMUD-Mimic",
+                     MessageBoxButton.YesNo, MessageBoxImage.Question)
+                 != MessageBoxResult.Yes) return;
+             res = _vm.JumpToItemUnfiltered(n);
+diff --git a/src/Mme.App/Mme.App.csproj b/src/Mme.App/Mme.App.csproj
+index c63a3c0..478c5d0 100644
+--- a/src/Mme.App/Mme.App.csproj
++++ b/src/Mme.App/Mme.App.csproj
+@@ -7,7 +7,9 @@
+     <ImplicitUsings>enable</ImplicitUsings>
+     <Nullable>enable</Nullable>
+     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+-    <AssemblyTitle>MMUD Explorer</AssemblyTitle>
++    <AssemblyName>MMUD-Mimic</AssemblyName>
++    <AssemblyTitle>MMUD-Mimic</AssemblyTitle>
++    <Product>MMUD-Mimic</Product>
+   </PropertyGroup>
+   <ItemGroup>
+     <ProjectReference Include="..\Mme.App.ViewModels\Mme.App.ViewModels.csproj" />
