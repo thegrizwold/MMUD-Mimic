@@ -1,0 +1,5 @@
+bin/
+obj/
+parity-dumps/
+*.user
+.vs/
