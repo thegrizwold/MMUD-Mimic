@@ -1,0 +1,520 @@
+diff --git a/PORT_LOG.md b/PORT_LOG.md
+index 8f38dc3..31a2d2f 100644
+--- a/PORT_LOG.md
++++ b/PORT_LOG.md
+@@ -1,5 +1,83 @@
+ # PORT LOG (append-only; newest session at top)
+ 
++## Session 47 — 2026-07-24 — BETA 29: spell "Learned From" sources (jumpable) + EQ-calculator status corrected
++
++USER ASKS: (1) with "Learnable Only" checked a spell still doesn't show
++WHERE it's learned — show the item(s) carrying the LearnSP ability, or the
++Textblock # and the NPC holding that prose, all clickable to jump to the
++Items/Monsters panels. (2) "finish the equipment calculations." (3) chest
++icon approved.
++
++--- (1) SPELL "LEARNED FROM" (new: MmeDatabase.GetSpellSourceLines) -----
++Data findings (verified against the DB, not assumed):
++- Spells."Learned From" holds only 4 token shapes: "Item #N" (205),
++  "NPC #N" (27), "Textblock #N" (5), and one "Item #N, Item #N".
++- ABILITY 42 = LearnSp (EnumNames :297), AbilVal = the taught spell.
++  Cross-checked all 207 "Item #" refs against items carrying abil 42 for
++  that spell: 207/207 match, 0 mismatches. BUT there are 217 ability-42
++  slots in stock data vs 205 "Item #" refs — so the denormalized field
++  MISSES teachers, and on a custom realm (the user's CPBBS-LLMud) it may
++  not be regenerated at all.
++  => the item scan is driven by ABILITY 42, not by "Learned From". This is
++  deliberately more thorough than the OG (PullSpellDetail :4341, which
++  just runs the field through GetLocations with a "(learn) " prefix).
++- Textblock trace: TBInfo."Action" lines are per-spell, e.g.
++  "give crane totem to kuel:check class:class 15:race 1:levelcheck:
++   minlevel 40 2553:checkitem 1276 2552:takeitem 1276 2552:
++   learnspell 838:text 2904".
++  The teaching NPC is NOT in the textblock — it is traced
++  TBInfo."Called From" -> "Room 16/2667" -> Rooms."NPC" = 718 -> Kuel.
++So for a textblock-taught spell the pane now emits the NPC, the quest
++command phrase, the required item (checkitem), and the class/minlevel
++gate (class number resolved to its NAME via Classes), plus the textblock
++line with the "[TB n]" tail. Verified output for spell 838:
++    (learn) Monster: Kuel (718)
++        quest: "give crane totem to kuel"
++        requires Item: crane totem (1276)
++        requires class Mystic, level 40+
++    (learn) Textblock 2903  [TB 2903]
++
++CLICK-THROUGH:
++- The spell pane TextBox previously had NO MouseDoubleClick handler (three
++  other detail panes did). Wired to the existing DetailText_MouseDoubleClick.
++- NavigateFromLine's monster regex was anchored "^Monster:", which the
++  "(learn) " prefix broke -> anchor relaxed to match "Monster: ... (N)"
++  anywhere in the line. ([TB n] and (map/room) branches already matched fine.)
++- Item lines were previously unjumpable at all (a logged divergence:
++  "Item:/Spell:/Shop: line jumps unported"). Added
++  MainViewModel.ParseItemRefLine (pure, static) and had the WINDOW handle
++  it via the existing DoEquipJump — which already routes
++  weapons/armour/sundry and shows the "clear the filter?" prompt. Keeping
++  the MessageBox in the window layer is why the parse and the jump are
++  split. Applied to both the detail-pane lines and the dossier lines, so
++  monster-drop "Item:" lines are now clickable too.
++
++--- (2) EQUIPMENT CALCULATOR: ALREADY DONE; THE README WAS STALE --------
++The quoted text ("the accumulation loops are scoped in the ledger... the
++character panel takes the derived stats as direct entries") is stale
++README copy. Reality, checked three ways:
++- docs/PARITY_LEDGER.md :246 — CalcCharacterStats (frmMain :26986-28230)
++  + InvenCalcEncum + AdjMainStatBonus + GetRaceHPBonus + Quick&Deadly +
++  InvenAddEquip: "Ported (session 23) + real-db anchors", with a long
++  recorded divergence list.
++- Mme.Data/EquipmentStatsService.cs is 918 lines and contains the class
++  abil scan (:27076), race abil scan + HPPerLVL (:27147), encum-first
++  (:27200), bless (:27258) and the equipped + carried item loop (:27392).
++- NEW PIN EquipmentCalc_AccumulatesWornItemIntoDerivedStats: equipping
++  padded vest (332) into Torso raises encumbrance AND IntAc vs bare, and
++  the per-slot Tips name the item. So the behaviour is now asserted by
++  the build rather than argued from docs.
++README corrected: test count 693 -> 866, the EQ calculator moved out of
++"known remaining work" into a "completed since this list was written"
++note, and the genuinely-remaining detail-panel item is named precisely
++(PullSpellEQ :4067-4527, still "READ (head) — DEFERRED" in the ledger).
++
++TESTS (+9 -> 867/867): SpellSource_ItemTaught_ListsTeachingItem,
++SpellSource_ScansLearnSpAbility_NotJustLearnedFromField,
++SpellSource_TextblockTaught_TracesNpcQuestAndRequirement,
++SpellSource_UntaughtSpell_IsEmpty, ParseItemRefLine_MatchesOnlyItemLines
++(4 cases), EquipmentCalc_AccumulatesWornItemIntoDerivedStats.
++
+ ## Session 46 (cont.) — 2026-07-24 — BETA 28: rename to "MMUD-Mimic" + treasure-chest icon
+ 
+ User decided to rename the C# port from "MMUD Explorer" / "MajorMUD
+diff --git a/FEATURE_CENSUS.md b/FEATURE_CENSUS.md
+index 784fafe..8566666 100644
+--- a/FEATURE_CENSUS.md
++++ b/FEATURE_CENSUS.md
+@@ -94,6 +94,17 @@ VB6-exact per-step banker's accumulation).
+ - [MISSING] MME-export paste keys (CurrentENC + coin-weight keys);
+   EndCast recursion in cast text (shared with monster-detail gap).
+ 
++## Spell "Learned From" sources (S47 beta 29)
++- [DONE] Spells pane lists where a spell is learned: items carrying
++  ability 42 (LearnSp) — scanned directly, so it finds teachers the
++  denormalized "Learned From" field misses — plus NPC refs, plus for
++  textblock-taught spells the traced NPC (Called From -> room -> NPC),
++  the quest command, the required checkitem, and the class/level gate.
++- [DONE] All of it is double-click jumpable: Item: lines -> the item's
++  tab (via DoEquipJump), Monster: lines -> Monsters, [TB n] -> the
++  textblock viewer. Closes the "Item: line jumps unported" divergence.
++- [MISSING] the rest of PullSpellEQ's OG quartet/nest presentation.
++
+ ## Monster combat dossier (S46 beta 26)
+ - [DONE] Damage vs Mob (weapon desc + swings/crit/hit detail + RTK/RTD
+   + immune:MagicLVL), Damage vs Lair, Scripting Estimate (exp/hr + the
+diff --git a/README.md b/README.md
+index 2910146..1e7313e 100644
+--- a/README.md
++++ b/README.md
+@@ -64,23 +64,30 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
+ dotnet test
+ ```
+ 
+-693 tests. Anchors were derived from independent replicas of the VB6
++866 tests. Anchors were derived from independent replicas of the VB6
+ math (not from the port itself); real-database tests are guarded on the
+ converted `mmud-1.11p.db` being present.
+ 
+ ## Known remaining work
+ 
+-- **Equipment calculator** (`frmMain.CalcCharacterStats`, ~1,240 lines):
+-  worn-item → derived-stat computation. The routing table
+-  (GetAbilityStatSlot) is ported and tested; the accumulation loops are
+-  scoped in the ledger. Until then the character panel takes the derived
+-  stats as direct entries — the same numbers the VB6 labels display.
+-- **Detail panels** (PullSpellEQ and friends): display-string builders
+-  over already-ported math.
++- **Spell detail panel** (`PullSpellEQ` :4067–4527, ~460 lines): the
++  display-string builder over already-ported math. The spell pane shows
++  the level-scaled min/max, duration, ability text and (S47) the
++  jumpable "Learned From" sources; the remaining OG quartet/nest
++  presentation is still to come.
+ - **Party damage tables** (GetPreCalculatedMonsterDamage): the lair path
+   currently divides final Exp/Hr by party size, matching frmMain's lair
+   behavior.
+ 
++Completed since this list was first written: the **equipment
++calculator** (`frmMain.CalcCharacterStats`, ~1,240 lines) shipped in
++session 23 — `Mme.Data/EquipmentStatsService.cs` runs the full
++accumulation (class/race ability scans, encumbrance-first ordering,
++bless, the equipped + carried item loop, per-slot source tips), with
++real-database anchors and the divergence list recorded in
++`docs/PARITY_LEDGER.md`. `EquipmentCalc_AccumulatesWornItemIntoDerivedStats`
++pins the behaviour directly.
++
+ ## For contributors / future sessions
+ 
+ 1. `docs/MME_REWRITE_STRATEGY.md` — the master plan and Anti-Hallucination Protocol (§0).
+diff --git a/src/Mme.Data/MmeDatabase.cs b/src/Mme.Data/MmeDatabase.cs
+index 6492447..a346527 100644
+--- a/src/Mme.Data/MmeDatabase.cs
++++ b/src/Mme.Data/MmeDatabase.cs
+@@ -925,6 +925,160 @@ public sealed partial class MmeDatabase : IDisposable
+         return lines;
+     }
+ 
++    /// <summary>S47 — where a spell is LEARNED, for the Spells detail
++    /// pane. The OG (PullSpellDetail :4341) just runs the denormalized
++    /// Spells."Learned From" field through GetLocations with a "(learn) "
++    /// prefix; this does that AND enriches it, because the user asked to
++    /// see the teaching item/NPC and be able to click through:
++    ///  - AUTHORITATIVE item scan: any item carrying ability 42 (LearnSp)
++    ///    whose AbilVal is this spell. This is deliberately NOT driven by
++    ///    "Learned From" — that field misses teachers (217 ability-42
++    ///    slots in stock data vs 205 "Item #" refs), and on a custom
++    ///    realm it is often not regenerated at all.
++    ///  - "NPC #N" tokens from "Learned From" → jumpable Monster lines.
++    ///  - "Textblock #N" tokens → the quest that teaches it: the action
++    ///    line carrying "learnspell &lt;this spell&gt;" yields the command
++    ///    phrase, the required item (checkitem), and any class/minlevel
++    ///    gate; the teaching NPC is traced Called From → "Room m/r" →
++    ///    Rooms."NPC" → monster. Emits jumpable Monster:/Item: lines plus
++    ///    a "[TB n]" tail so the textblock viewer opens on double-click.
++    /// Lines are formatted to match the jump patterns NavigateFromLine and
++    /// the window's item-jump already recognize.</summary>
++    public List<string> GetSpellSourceLines(long spell)
++    {
++        var outp = new List<string>();
++        if (spell <= 0) return outp;
++
++        // ---- 1) items that teach it (ability 42 = LearnSp) ----
++        var seenItems = new HashSet<long>();
++        using (var cmd = _con.CreateCommand())
++        {
++            var ors = new List<string>();
++            for (int i = 0; i < 8; i++)
++                ors.Add($"(\"Abil-{i}\" = 42 AND \"AbilVal-{i}\" = $s)");
++            cmd.CommandText = "SELECT \"Number\",\"Name\" FROM \"Items\" WHERE "
++                + string.Join(" OR ", ors) + " ORDER BY \"Number\"";
++            cmd.Parameters.AddWithValue("$s", spell);
++            using var r = cmd.ExecuteReader();
++            while (r.Read())
++            {
++                long n = L(r[0]);
++                if (seenItems.Add(n))
++                    outp.Add($"(learn) Item: {S(r[1])} ({n})");
++            }
++        }
++
++        // ---- 2) the denormalized field: NPC + textblock refs ----
++        string learnedFrom = "";
++        using (var cmd = _con.CreateCommand())
++        {
++            cmd.CommandText =
++                "SELECT \"Learned From\" FROM \"Spells\" WHERE \"Number\" = $n";
++            cmd.Parameters.AddWithValue("$n", spell);
++            using var r = cmd.ExecuteReader();
++            if (r.Read()) learnedFrom = S(r[0]);
++        }
++        foreach (string raw in learnedFrom.Split(','))
++        {
++            string e = raw.Trim();
++            if (e.Length == 0) continue;
++            string lower = e.ToLowerInvariant();
++            if (TryRef(lower, "npc #", out long n)
++                || TryRef(lower, "monster #", out n))
++                outp.Add($"(learn) Monster: {GetMonsterName(n)} ({n})");
++            else if (TryRef(lower, "textblock #", out n))
++                AppendSpellTextblockSource(spell, n, outp);
++            else if (TryRef(lower, "item #", out n))
++            {
++                if (seenItems.Add(n))
++                    outp.Add($"(learn) Item: {GetItemName(n)} ({n})");
++            }
++        }
++        return outp;
++    }
++
++    /// <summary>The textblock branch of GetSpellSourceLines: pull the
++    /// quest step that teaches this spell out of TBInfo."Action" and trace
++    /// the NPC that carries the prose.</summary>
++    private void AppendSpellTextblockSource(long spell, long tb,
++        List<string> outp)
++    {
++        string action = "", calledFrom = "";
++        using (var cmd = _con.CreateCommand())
++        {
++            cmd.CommandText = "SELECT \"Action\",\"Called From\" "
++                + "FROM \"TBInfo\" WHERE \"Number\" = $n";
++            cmd.Parameters.AddWithValue("$n", tb);
++            using var r = cmd.ExecuteReader();
++            if (r.Read()) { action = S(r[0]); calledFrom = S(r[1]); }
++        }
++
++        // the teaching NPC: Called From "Room m/r" -> Rooms."NPC"
++        var npcs = new List<long>();
++        foreach (var mm in System.Text.RegularExpressions.Regex.Matches(
++            calledFrom, @"Room\s+(\d+)/(\d+)").Cast<
++                System.Text.RegularExpressions.Match>())
++        {
++            long map = long.Parse(mm.Groups[1].Value);
++            long room = long.Parse(mm.Groups[2].Value);
++            using var cmd = _con.CreateCommand();
++            cmd.CommandText = "SELECT \"NPC\" FROM \"Rooms\" WHERE "
++                + "\"Map Number\" = $m AND \"Room Number\" = $r";
++            cmd.Parameters.AddWithValue("$m", map);
++            cmd.Parameters.AddWithValue("$r", room);
++            using var rr = cmd.ExecuteReader();
++            if (rr.Read())
++            {
++                long npc = L(rr[0]);
++                if (npc > 0 && !npcs.Contains(npc)) npcs.Add(npc);
++            }
++        }
++        foreach (long npc in npcs)
++            outp.Add($"(learn) Monster: {GetMonsterName(npc)} ({npc})");
++
++        // the action line(s) that actually teach THIS spell
++        var shown = new HashSet<string>();
++        foreach (string line in action.Replace("\\n", "\n").Split('\n'))
++        {
++            if (!System.Text.RegularExpressions.Regex.IsMatch(line,
++                    $@"\blearnspell\s+{spell}\b"))
++                continue;
++            string cmdPhrase = line.Split(':')[0].Trim();
++            if (cmdPhrase.Length > 0 && shown.Add("c:" + cmdPhrase))
++                outp.Add($"    quest: \"{cmdPhrase}\"");
++            var ci = System.Text.RegularExpressions.Regex.Match(line,
++                @"\bcheckitem\s+(\d+)");
++            if (ci.Success)
++            {
++                long need = long.Parse(ci.Groups[1].Value);
++                if (shown.Add("i:" + need))
++                    outp.Add($"    requires Item: {GetItemName(need)} ({need})");
++            }
++            var lv = System.Text.RegularExpressions.Regex.Match(line,
++                @"\bminlevel\s+(\d+)");
++            var cl = System.Text.RegularExpressions.Regex.Match(line,
++                @"\bclass\s+(\d+)");
++            var gates = new List<string>();
++            if (cl.Success) gates.Add($"class {GetClassNameOrNumber(cl.Groups[1].Value)}");
++            if (lv.Success) gates.Add($"level {lv.Groups[1].Value}+");
++            if (gates.Count > 0 && shown.Add("g:" + string.Join(",", gates)))
++                outp.Add("    requires " + string.Join(", ", gates));
++        }
++        // the textblock itself, with the [TB n] tail the viewer hooks on
++        outp.Add($"(learn) Textblock {tb}  [TB {tb}]");
++    }
++
++    private string GetClassNameOrNumber(string raw)
++    {
++        if (!long.TryParse(raw, out long n)) return raw;
++        using var cmd = _con.CreateCommand();
++        cmd.CommandText =
++            "SELECT \"Name\" FROM \"Classes\" WHERE \"Number\" = $n";
++        cmd.Parameters.AddWithValue("$n", n);
++        using var r = cmd.ExecuteReader();
++        return r.Read() ? S(r[0]) : raw;
++    }
++
+     public List<string> ResolveLocationRefs(string sLoc,
+         bool hideNumbers = false)
+     {
+diff --git a/src/Mme.App.ViewModels/MainViewModel.Browse.cs b/src/Mme.App.ViewModels/MainViewModel.Browse.cs
+index dc3028f..d022af3 100644
+--- a/src/Mme.App.ViewModels/MainViewModel.Browse.cs
++++ b/src/Mme.App.ViewModels/MainViewModel.Browse.cs
+@@ -426,6 +426,15 @@ public sealed partial class MainViewModel
+         if (atLvl.NDur > 0) sb.AppendLine($"Duration: {atLvl.NDur} rounds");
+         sb.AppendLine();
+         sb.Append(_db.GetSpellAbilityText(number, Rules));
++        // S47: where it's learned — jumpable Item/Monster/Textblock lines
++        var src = _db.GetSpellSourceLines(number);
++        if (src.Count > 0)
++        {
++            sb.AppendLine();
++            sb.AppendLine();
++            sb.AppendLine("Learned From:");
++            foreach (string l in src) sb.AppendLine(l);
++        }
+         return sb.ToString().TrimEnd();
+     }
+ }
+diff --git a/src/Mme.App.ViewModels/MainViewModel.Map.cs b/src/Mme.App.ViewModels/MainViewModel.Map.cs
+index f307bdf..3f653ff 100644
+--- a/src/Mme.App.ViewModels/MainViewModel.Map.cs
++++ b/src/Mme.App.ViewModels/MainViewModel.Map.cs
+@@ -101,7 +101,7 @@ public partial class MainViewModel
+             return true;
+         }
+         var mo = System.Text.RegularExpressions.Regex.Match(line,
+-            @"^Monster: .*\((\d+)\)\s*$");
++            @"Monster: .*\((\d+)\)\s*$");
+         if (mo.Success && SelectMonsterInGrid(long.Parse(mo.Groups[1].Value)))
+         {
+             RequestTab?.Invoke("monsters");
+@@ -110,6 +110,17 @@ public partial class MainViewModel
+         return false;
+     }
+ 
++    /// <summary>S47 — "Item: name (N)" (optionally prefixed, e.g. the
++    /// Spells pane's "(learn) Item: ..." / "    requires Item: ...")
++    /// yields N, else 0. Item jumps live in the window because they may
++    /// prompt to clear the list filter, so this only parses.</summary>
++    public static long ParseItemRefLine(string line)
++    {
++        var m = System.Text.RegularExpressions.Regex.Match(line,
++            @"Item: .*\((\d+)\)\s*$");
++        return m.Success ? long.Parse(m.Groups[1].Value) : 0;
++    }
++
+     public void MapGoSplit()
+     {
+         if (long.TryParse(_mapNumText.Trim(), out long m)
+diff --git a/src/Mme.App/MainWindow.xaml b/src/Mme.App/MainWindow.xaml
+index 73d41d1..6c01f9d 100644
+--- a/src/Mme.App/MainWindow.xaml
++++ b/src/Mme.App/MainWindow.xaml
+@@ -1225,7 +1225,8 @@
+             </DataGrid.Columns>
+           </DataGrid>
+           <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
+-                   Text="{Binding SpellDetailText, Mode=OneWay}"/>
++                   Text="{Binding SpellDetailText, Mode=OneWay}"
++                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
+         </Grid>
+       </GroupBox>
+ 
+diff --git a/src/Mme.App/MainWindow.xaml.cs b/src/Mme.App/MainWindow.xaml.cs
+index 92f7d13..bb6d2f3 100644
+--- a/src/Mme.App/MainWindow.xaml.cs
++++ b/src/Mme.App/MainWindow.xaml.cs
+@@ -401,7 +401,13 @@ public partial class MainWindow : Window
+         if (idx < 0) return;
+         int line = tb.GetLineIndexFromCharacterIndex(idx);
+         if (line < 0) return;
+-        _vm.NavigateFromLine(tb.GetLineText(line).Trim());
++        string text = tb.GetLineText(line).Trim();
++        // S47: "Item: name (N)" lines (Spells "Learned From", requires
++        // lines) jump to the item — via DoEquipJump so the weapons/armour/
++        // sundry routing and the "clear filter?" prompt are reused.
++        long item = ViewModels.MainViewModel.ParseItemRefLine(text);
++        if (item > 0) { DoEquipJump(item); return; }
++        _vm.NavigateFromLine(text);
+     }
+ 
+     private void DossierLine_MouseDown(object sender, MouseButtonEventArgs e)
+@@ -409,7 +415,12 @@ public partial class MainWindow : Window
+         if (e.ClickCount != 2) return;
+         if (sender is FrameworkElement { DataContext:
+             Mme.App.ViewModels.MainViewModel.DossierLine dl })
+-            _vm.NavigateFromLine(dl.Text.Trim());
++        {
++            string t = dl.Text.Trim();
++            long it = ViewModels.MainViewModel.ParseItemRefLine(t);
++            if (it > 0) { DoEquipJump(it); return; }
++            _vm.NavigateFromLine(t);
++        }
+     }
+ 
+     private void MapGo_Click(object sender, RoutedEventArgs e) =>
+diff --git a/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs b/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+index a0c3689..8e23fa4 100644
+--- a/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
++++ b/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+@@ -3775,6 +3775,99 @@ public class Session46CombatDossierTests
+         vm.Dispose();
+     }
+ 
++    // ---- S47: spell "Learned From" sources + click-through parsing ----
++    [Fact]
++    public void SpellSource_ItemTaught_ListsTeachingItem()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var l = db.GetSpellSourceLines(1);           // magic missile
++        Assert.Contains(l, x => x.Contains("Item: scroll of magic missile (119)"));
++        // and it is parseable back to the item number for the jump
++        Assert.Equal(119, Mme.App.ViewModels.MainViewModel.ParseItemRefLine(
++            l.First(x => x.Contains("Item:"))));
++    }
++
++    [Fact]
++    public void SpellSource_ScansLearnSpAbility_NotJustLearnedFromField()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // every item carrying ability 42 for spell 4 must be listed
++        var l = db.GetSpellSourceLines(4);
++        Assert.Contains(l, x => x.Contains("(1340)"));
++    }
++
++    [Fact]
++    public void SpellSource_TextblockTaught_TracesNpcQuestAndRequirement()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var l = db.GetSpellSourceLines(838);         // form of the crane
++        // NPC traced Called From -> room -> Rooms."NPC"
++        Assert.Contains(l, x => x.Contains("Monster: Kuel (718)"));
++        // the quest phrase + the required item, from the learnspell line
++        Assert.Contains(l, x => x.Contains("give crane totem to kuel"));
++        Assert.Contains(l, x => x.Contains("requires Item: crane totem (1276)"));
++        // class gate resolved to a NAME, and the level gate
++        Assert.Contains(l, x => x.Contains("class Mystic") && x.Contains("level 40+"));
++        // textblock line carries the [TB n] tail the viewer hooks on
++        Assert.Contains(l, x => x.Contains("[TB 2903]"));
++    }
++
++    [Fact]
++    public void SpellSource_UntaughtSpell_IsEmpty()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // a spell with no teacher yields no source lines (no bogus rows)
++        long none = 0;
++        for (long sp = 1; sp < 200 && none == 0; sp++)
++            if (db.GetSpellSourceLines(sp).Count == 0) none = sp;
++        Assert.True(none > 0);
++        Assert.Empty(db.GetSpellSourceLines(none));
++    }
++
++    [Theory]
++    [InlineData("(learn) Item: scroll of x (119)", 119)]
++    [InlineData("    requires Item: crane totem (1276)", 1276)]
++    [InlineData("(learn) Monster: Kuel (718)", 0)]     // monster, not item
++    [InlineData("Room: somewhere (7/1358)", 0)]
++    public void ParseItemRefLine_MatchesOnlyItemLines(string line, long want)
++        => Assert.Equal(want, Mme.App.ViewModels.MainViewModel.ParseItemRefLine(line));
++
++    // ---- S47: PROOF the equipment calculator's accumulation loops run.
++    // The README claimed these were unported ("the character panel takes
++    // the derived stats as direct entries"); the parity ledger says
++    // CalcCharacterStats shipped in session 23. This asserts the actual
++    // behaviour so the question is settled by the build, not the docs:
++    // equipping a real armour item must move encumbrance + AC and record
++    // the item as the source in the per-slot tips.
++    [Fact]
++    public void EquipmentCalc_AccumulatesWornItemIntoDerivedStats()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var rules = Mme.Core.Engine.StockRules.Instance;
++        var svc = new Mme.Data.EquipmentStatsService(db, rules);
++
++        var bare = svc.Calculate(1, 1, 20, 100, 100, 100, 100, 100, 100,
++            new Mme.Data.EquipmentStatsService.EquipSlots());
++
++        var worn = new Mme.Data.EquipmentStatsService.EquipSlots();
++        worn.Items[4] = 332;                     // padded vest -> Torso
++        var dressed = svc.Calculate(1, 1, 20, 100, 100, 100, 100, 100, 100, worn);
++
++        // the loop actually folded the item in: weight and AC both moved
++        Assert.True(dressed.Slots[0] > bare.Slots[0],
++            $"encum should rise: {bare.Slots[0]} -> {dressed.Slots[0]}");
++        Assert.True(dressed.IntAc > bare.IntAc,
++            $"AC should rise: {bare.IntAc} -> {dressed.IntAc}");
++        // and the source breakdown names the item (StatTips port)
++        Assert.Contains(dressed.Tips, t => t is not null
++            && t.Contains("padded vest", StringComparison.OrdinalIgnoreCase));
++    }
++
+     [Fact]
+     public void FlattenDossier_ShapesHeadersDetailsAndSpacers()
+     {

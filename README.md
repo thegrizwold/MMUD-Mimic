@@ -64,22 +64,29 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
 dotnet test
 ```
 
-693 tests. Anchors were derived from independent replicas of the VB6
+866 tests. Anchors were derived from independent replicas of the VB6
 math (not from the port itself); real-database tests are guarded on the
 converted `mmud-1.11p.db` being present.
 
 ## Known remaining work
 
-- **Equipment calculator** (`frmMain.CalcCharacterStats`, ~1,240 lines):
-  worn-item → derived-stat computation. The routing table
-  (GetAbilityStatSlot) is ported and tested; the accumulation loops are
-  scoped in the ledger. Until then the character panel takes the derived
-  stats as direct entries — the same numbers the VB6 labels display.
-- **Detail panels** (PullSpellEQ and friends): display-string builders
-  over already-ported math.
+- **Spell detail panel** (`PullSpellEQ` :4067–4527, ~460 lines): the
+  display-string builder over already-ported math. The spell pane shows
+  the level-scaled min/max, duration, ability text and (S47) the
+  jumpable "Learned From" sources; the remaining OG quartet/nest
+  presentation is still to come.
 - **Party damage tables** (GetPreCalculatedMonsterDamage): the lair path
   currently divides final Exp/Hr by party size, matching frmMain's lair
   behavior.
+
+Completed since this list was first written: the **equipment
+calculator** (`frmMain.CalcCharacterStats`, ~1,240 lines) shipped in
+session 23 — `Mme.Data/EquipmentStatsService.cs` runs the full
+accumulation (class/race ability scans, encumbrance-first ordering,
+bless, the equipped + carried item loop, per-slot source tips), with
+real-database anchors and the divergence list recorded in
+`docs/PARITY_LEDGER.md`. `EquipmentCalc_AccumulatesWornItemIntoDerivedStats`
+pins the behaviour directly.
 
 ## For contributors / future sessions
 

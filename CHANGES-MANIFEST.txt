@@ -1,39 +1,57 @@
-MMUD-MIMIC — BETA 28 CHANGES-ONLY PACKAGE
+MMUD-MIMIC — BETA 29 CHANGES-ONLY PACKAGE
 =========================================
-Baseline: beta 27 (last full source release).
-Beta 28 = rename "MMUD Explorer" -> "MMUD-Mimic" + new treasure-chest icon.
-No engine/data/logic changes; test suite unchanged at 858/858.
+Baseline: beta 28. 9 changed files, ALL TEXT — so unlike beta 28 the
+patch covers the entire delta (no binary files to copy by hand).
+
+VERIFIED: applying beta29.patch to a clean beta-28 checkout builds and
+passes the full suite (867/867) on its own, so the delta is complete.
 
 CHANGED FILES (9, all modifications):
-  TEXT (covered by beta28.patch):
-    PORT_LOG.md
-    FEATURE_CENSUS.md
-    README.md
-    src/Mme.App/App.xaml.cs
-    src/Mme.App/MainWindow.xaml
-    src/Mme.App/MainWindow.xaml.cs
-    src/Mme.App/Mme.App.csproj
-  BINARY (NOT patchable — copy these two files over directly):
-    src/Mme.App/app-icon.ico   (5-size treasure chest: 16/32/48/64/256)
-    src/Mme.App/app-icon.png   (256px window icon)
+  src/Mme.Data/MmeDatabase.cs                        (spell-source resolver)
+  src/Mme.App.ViewModels/MainViewModel.Browse.cs     (Learned From section)
+  src/Mme.App.ViewModels/MainViewModel.Map.cs        (nav regex + item parse)
+  src/Mme.App/MainWindow.xaml                        (spell pane dblclick)
+  src/Mme.App/MainWindow.xaml.cs                     (item jump wiring)
+  tests/Mme.Core.Tests/Wave18AttackPanelTests.cs     (+9 tests)
+  PORT_LOG.md, FEATURE_CENSUS.md, README.md          (docs)
 
 APPLY
 -----
-A) From a clean beta-27 checkout:
-     git apply beta28.patch        # the 7 text files
-     # then copy the 2 icon files over (they can't live in a text patch):
-     cp src/Mme.App/app-icon.ico src/Mme.App/app-icon.png  <your-repo>/src/Mme.App/
-   (`git apply --check beta28.patch` verified clean.)
-B) Or just extract this whole zip on top of a beta-27 checkout — the 9
-   files are laid out at their real repo-relative paths and overwrite
-   exactly what changed (icons included).
+A) From a clean beta-28 checkout:
+     git apply beta29.patch
+   (verified with `git apply --check`, then a real apply + full test run)
+B) Or extract this zip over a beta-28 checkout — the 9 files sit at their
+   real repo-relative paths.
 
-WHAT CHANGED
-------------
-* App renamed to MMUD-Mimic: window title, crash/error dialogs, the
-  character save/open dialog filters, and the executable (now
-  MMUD-Mimic.exe via <AssemblyName>). Namespaces / .sln / project
-  filenames are intentionally unchanged (internal only).
-* Docs (README/census) name the port MMUD-Mimic while still calling the
-  original VB6 tool "MMUD Explorer".
-* New pixel-art treasure-chest icon (.ico with 5 crisp sizes + 256 PNG).
+WHAT CHANGED (beta 29)
+----------------------
+1. SPELL "LEARNED FROM" (new MmeDatabase.GetSpellSourceLines):
+   - Teaching items found by scanning for ABILITY 42 (LearnSp) directly,
+     NOT from the denormalized Spells."Learned From" field. That field is
+     incomplete (stock: 217 ability-42 slots vs 205 "Item #" refs) and is
+     often not regenerated on custom realms. Cross-checked: 207/207 of
+     the existing refs agree with the ability scan, 0 mismatches.
+   - NPC refs resolved to jumpable Monster lines.
+   - Textblock-taught spells: the teaching NPC is traced
+     TBInfo."Called From" -> "Room m/r" -> Rooms."NPC" (the NPC is not in
+     the textblock itself), plus the quest command phrase, the required
+     checkitem, and the class/minlevel gate (class number -> class name).
+2. CLICK-THROUGH FIXES:
+   - The Spells detail pane had NO MouseDoubleClick handler; wired to the
+     existing DetailText_MouseDoubleClick.
+   - NavigateFromLine's monster regex was anchored "^Monster:", which the
+     "(learn) " prefix would have broken; anchor relaxed.
+   - "Item:" lines were never jumpable anywhere (logged divergence). Added
+     MainViewModel.ParseItemRefLine (pure/static) + the window routes it
+     through the existing DoEquipJump (weapons/armour/sundry routing and
+     the "clear the filter?" prompt reused). Also applies to dossier
+     lines, so monster drop "Item:" lines are now clickable.
+3. EQUIPMENT CALCULATOR — NO CODE CHANGE NEEDED; DOC FIX ONLY.
+   The "accumulation loops still pending" text was stale README copy
+   (it also still claimed 693 tests). The calculator shipped in session
+   23: EquipmentStatsService.cs, 918 lines, class/race ability scans,
+   encumbrance-first, bless, equipped+carried loop, per-slot tips; ledger
+   records "Ported (session 23) + real-db anchors". New pin
+   EquipmentCalc_AccumulatesWornItemIntoDerivedStats proves it (equipping
+   padded vest 332 raises encumbrance AND AC; tips name the item).
+   README corrected.

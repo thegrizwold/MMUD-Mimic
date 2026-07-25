@@ -94,6 +94,17 @@ VB6-exact per-step banker's accumulation).
 - [MISSING] MME-export paste keys (CurrentENC + coin-weight keys);
   EndCast recursion in cast text (shared with monster-detail gap).
 
+## Spell "Learned From" sources (S47 beta 29)
+- [DONE] Spells pane lists where a spell is learned: items carrying
+  ability 42 (LearnSp) — scanned directly, so it finds teachers the
+  denormalized "Learned From" field misses — plus NPC refs, plus for
+  textblock-taught spells the traced NPC (Called From -> room -> NPC),
+  the quest command, the required checkitem, and the class/level gate.
+- [DONE] All of it is double-click jumpable: Item: lines -> the item's
+  tab (via DoEquipJump), Monster: lines -> Monsters, [TB n] -> the
+  textblock viewer. Closes the "Item: line jumps unported" divergence.
+- [MISSING] the rest of PullSpellEQ's OG quartet/nest presentation.
+
 ## Monster combat dossier (S46 beta 26)
 - [DONE] Damage vs Mob (weapon desc + swings/crit/hit detail + RTK/RTD
   + immune:MagicLVL), Damage vs Lair, Scripting Estimate (exp/hr + the

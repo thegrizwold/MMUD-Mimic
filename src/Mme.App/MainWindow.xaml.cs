@@ -401,7 +401,13 @@ public partial class MainWindow : Window
         if (idx < 0) return;
         int line = tb.GetLineIndexFromCharacterIndex(idx);
         if (line < 0) return;
-        _vm.NavigateFromLine(tb.GetLineText(line).Trim());
+        string text = tb.GetLineText(line).Trim();
+        // S47: "Item: name (N)" lines (Spells "Learned From", requires
+        // lines) jump to the item — via DoEquipJump so the weapons/armour/
+        // sundry routing and the "clear filter?" prompt are reused.
+        long item = ViewModels.MainViewModel.ParseItemRefLine(text);
+        if (item > 0) { DoEquipJump(item); return; }
+        _vm.NavigateFromLine(text);
     }
 
     private void DossierLine_MouseDown(object sender, MouseButtonEventArgs e)
@@ -409,7 +415,12 @@ public partial class MainWindow : Window
         if (e.ClickCount != 2) return;
         if (sender is FrameworkElement { DataContext:
             Mme.App.ViewModels.MainViewModel.DossierLine dl })
-            _vm.NavigateFromLine(dl.Text.Trim());
+        {
+            string t = dl.Text.Trim();
+            long it = ViewModels.MainViewModel.ParseItemRefLine(t);
+            if (it > 0) { DoEquipJump(it); return; }
+            _vm.NavigateFromLine(t);
+        }
     }
 
     private void MapGo_Click(object sender, RoutedEventArgs e) =>

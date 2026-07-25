@@ -1225,7 +1225,8 @@
             </DataGrid.Columns>
           </DataGrid>
           <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
-                   Text="{Binding SpellDetailText, Mode=OneWay}"/>
+                   Text="{Binding SpellDetailText, Mode=OneWay}"
+                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
         </Grid>
       </GroupBox>
 

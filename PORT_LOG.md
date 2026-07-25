@@ -1,5 +1,83 @@
 # PORT LOG (append-only; newest session at top)
 
+## Session 47 — 2026-07-24 — BETA 29: spell "Learned From" sources (jumpable) + EQ-calculator status corrected
+
+USER ASKS: (1) with "Learnable Only" checked a spell still doesn't show
+WHERE it's learned — show the item(s) carrying the LearnSP ability, or the
+Textblock # and the NPC holding that prose, all clickable to jump to the
+Items/Monsters panels. (2) "finish the equipment calculations." (3) chest
+icon approved.
+
+--- (1) SPELL "LEARNED FROM" (new: MmeDatabase.GetSpellSourceLines) -----
+Data findings (verified against the DB, not assumed):
+- Spells."Learned From" holds only 4 token shapes: "Item #N" (205),
+  "NPC #N" (27), "Textblock #N" (5), and one "Item #N, Item #N".
+- ABILITY 42 = LearnSp (EnumNames :297), AbilVal = the taught spell.
+  Cross-checked all 207 "Item #" refs against items carrying abil 42 for
+  that spell: 207/207 match, 0 mismatches. BUT there are 217 ability-42
+  slots in stock data vs 205 "Item #" refs — so the denormalized field
+  MISSES teachers, and on a custom realm (the user's CPBBS-LLMud) it may
+  not be regenerated at all.
+  => the item scan is driven by ABILITY 42, not by "Learned From". This is
+  deliberately more thorough than the OG (PullSpellDetail :4341, which
+  just runs the field through GetLocations with a "(learn) " prefix).
+- Textblock trace: TBInfo."Action" lines are per-spell, e.g.
+  "give crane totem to kuel:check class:class 15:race 1:levelcheck:
+   minlevel 40 2553:checkitem 1276 2552:takeitem 1276 2552:
+   learnspell 838:text 2904".
+  The teaching NPC is NOT in the textblock — it is traced
+  TBInfo."Called From" -> "Room 16/2667" -> Rooms."NPC" = 718 -> Kuel.
+So for a textblock-taught spell the pane now emits the NPC, the quest
+command phrase, the required item (checkitem), and the class/minlevel
+gate (class number resolved to its NAME via Classes), plus the textblock
+line with the "[TB n]" tail. Verified output for spell 838:
+    (learn) Monster: Kuel (718)
+        quest: "give crane totem to kuel"
+        requires Item: crane totem (1276)
+        requires class Mystic, level 40+
+    (learn) Textblock 2903  [TB 2903]
+
+CLICK-THROUGH:
+- The spell pane TextBox previously had NO MouseDoubleClick handler (three
+  other detail panes did). Wired to the existing DetailText_MouseDoubleClick.
+- NavigateFromLine's monster regex was anchored "^Monster:", which the
+  "(learn) " prefix broke -> anchor relaxed to match "Monster: ... (N)"
+  anywhere in the line. ([TB n] and (map/room) branches already matched fine.)
+- Item lines were previously unjumpable at all (a logged divergence:
+  "Item:/Spell:/Shop: line jumps unported"). Added
+  MainViewModel.ParseItemRefLine (pure, static) and had the WINDOW handle
+  it via the existing DoEquipJump — which already routes
+  weapons/armour/sundry and shows the "clear the filter?" prompt. Keeping
+  the MessageBox in the window layer is why the parse and the jump are
+  split. Applied to both the detail-pane lines and the dossier lines, so
+  monster-drop "Item:" lines are now clickable too.
+
+--- (2) EQUIPMENT CALCULATOR: ALREADY DONE; THE README WAS STALE --------
+The quoted text ("the accumulation loops are scoped in the ledger... the
+character panel takes the derived stats as direct entries") is stale
+README copy. Reality, checked three ways:
+- docs/PARITY_LEDGER.md :246 — CalcCharacterStats (frmMain :26986-28230)
+  + InvenCalcEncum + AdjMainStatBonus + GetRaceHPBonus + Quick&Deadly +
+  InvenAddEquip: "Ported (session 23) + real-db anchors", with a long
+  recorded divergence list.
+- Mme.Data/EquipmentStatsService.cs is 918 lines and contains the class
+  abil scan (:27076), race abil scan + HPPerLVL (:27147), encum-first
+  (:27200), bless (:27258) and the equipped + carried item loop (:27392).
+- NEW PIN EquipmentCalc_AccumulatesWornItemIntoDerivedStats: equipping
+  padded vest (332) into Torso raises encumbrance AND IntAc vs bare, and
+  the per-slot Tips name the item. So the behaviour is now asserted by
+  the build rather than argued from docs.
+README corrected: test count 693 -> 866, the EQ calculator moved out of
+"known remaining work" into a "completed since this list was written"
+note, and the genuinely-remaining detail-panel item is named precisely
+(PullSpellEQ :4067-4527, still "READ (head) — DEFERRED" in the ledger).
+
+TESTS (+9 -> 867/867): SpellSource_ItemTaught_ListsTeachingItem,
+SpellSource_ScansLearnSpAbility_NotJustLearnedFromField,
+SpellSource_TextblockTaught_TracesNpcQuestAndRequirement,
+SpellSource_UntaughtSpell_IsEmpty, ParseItemRefLine_MatchesOnlyItemLines
+(4 cases), EquipmentCalc_AccumulatesWornItemIntoDerivedStats.
+
 ## Session 46 (cont.) — 2026-07-24 — BETA 28: rename to "MMUD-Mimic" + treasure-chest icon
 
 User decided to rename the C# port from "MMUD Explorer" / "MajorMUD

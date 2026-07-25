@@ -3775,6 +3775,99 @@ public class Session46CombatDossierTests
         vm.Dispose();
     }
 
+    // ---- S47: spell "Learned From" sources + click-through parsing ----
+    [Fact]
+    public void SpellSource_ItemTaught_ListsTeachingItem()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var l = db.GetSpellSourceLines(1);           // magic missile
+        Assert.Contains(l, x => x.Contains("Item: scroll of magic missile (119)"));
+        // and it is parseable back to the item number for the jump
+        Assert.Equal(119, Mme.App.ViewModels.MainViewModel.ParseItemRefLine(
+            l.First(x => x.Contains("Item:"))));
+    }
+
+    [Fact]
+    public void SpellSource_ScansLearnSpAbility_NotJustLearnedFromField()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // every item carrying ability 42 for spell 4 must be listed
+        var l = db.GetSpellSourceLines(4);
+        Assert.Contains(l, x => x.Contains("(1340)"));
+    }
+
+    [Fact]
+    public void SpellSource_TextblockTaught_TracesNpcQuestAndRequirement()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var l = db.GetSpellSourceLines(838);         // form of the crane
+        // NPC traced Called From -> room -> Rooms."NPC"
+        Assert.Contains(l, x => x.Contains("Monster: Kuel (718)"));
+        // the quest phrase + the required item, from the learnspell line
+        Assert.Contains(l, x => x.Contains("give crane totem to kuel"));
+        Assert.Contains(l, x => x.Contains("requires Item: crane totem (1276)"));
+        // class gate resolved to a NAME, and the level gate
+        Assert.Contains(l, x => x.Contains("class Mystic") && x.Contains("level 40+"));
+        // textblock line carries the [TB n] tail the viewer hooks on
+        Assert.Contains(l, x => x.Contains("[TB 2903]"));
+    }
+
+    [Fact]
+    public void SpellSource_UntaughtSpell_IsEmpty()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // a spell with no teacher yields no source lines (no bogus rows)
+        long none = 0;
+        for (long sp = 1; sp < 200 && none == 0; sp++)
+            if (db.GetSpellSourceLines(sp).Count == 0) none = sp;
+        Assert.True(none > 0);
+        Assert.Empty(db.GetSpellSourceLines(none));
+    }
+
+    [Theory]
+    [InlineData("(learn) Item: scroll of x (119)", 119)]
+    [InlineData("    requires Item: crane totem (1276)", 1276)]
+    [InlineData("(learn) Monster: Kuel (718)", 0)]     // monster, not item
+    [InlineData("Room: somewhere (7/1358)", 0)]
+    public void ParseItemRefLine_MatchesOnlyItemLines(string line, long want)
+        => Assert.Equal(want, Mme.App.ViewModels.MainViewModel.ParseItemRefLine(line));
+
+    // ---- S47: PROOF the equipment calculator's accumulation loops run.
+    // The README claimed these were unported ("the character panel takes
+    // the derived stats as direct entries"); the parity ledger says
+    // CalcCharacterStats shipped in session 23. This asserts the actual
+    // behaviour so the question is settled by the build, not the docs:
+    // equipping a real armour item must move encumbrance + AC and record
+    // the item as the source in the per-slot tips.
+    [Fact]
+    public void EquipmentCalc_AccumulatesWornItemIntoDerivedStats()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var rules = Mme.Core.Engine.StockRules.Instance;
+        var svc = new Mme.Data.EquipmentStatsService(db, rules);
+
+        var bare = svc.Calculate(1, 1, 20, 100, 100, 100, 100, 100, 100,
+            new Mme.Data.EquipmentStatsService.EquipSlots());
+
+        var worn = new Mme.Data.EquipmentStatsService.EquipSlots();
+        worn.Items[4] = 332;                     // padded vest -> Torso
+        var dressed = svc.Calculate(1, 1, 20, 100, 100, 100, 100, 100, 100, worn);
+
+        // the loop actually folded the item in: weight and AC both moved
+        Assert.True(dressed.Slots[0] > bare.Slots[0],
+            $"encum should rise: {bare.Slots[0]} -> {dressed.Slots[0]}");
+        Assert.True(dressed.IntAc > bare.IntAc,
+            $"AC should rise: {bare.IntAc} -> {dressed.IntAc}");
+        // and the source breakdown names the item (StatTips port)
+        Assert.Contains(dressed.Tips, t => t is not null
+            && t.Contains("padded vest", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public void FlattenDossier_ShapesHeadersDetailsAndSpacers()
     {
