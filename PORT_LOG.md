@@ -1,5 +1,105 @@
 # PORT LOG (append-only; newest session at top)
 
+## Session 48 — 2026-07-25 — BETA 30: PullSpellEQ + GetAbilityStats ported (the last two "Deferred (Phase 3 VM)" ledger entries)
+
+USER: "take care of the flagged issue PullSpellEQ and finish that off the
+tasklist." Icon left alone until release, as instructed.
+
+VB6 READ: modMMudDatabase.bas :: PullSpellEQ (:4067-4527) and its helper
+modMMudFunc.bas :: GetAbilityStats (:2242-2330), both line-by-line.
+
+NEW FILE src/Mme.Data/SpellEqService.cs (MmeDatabase partial, so the
+private GetTextblockAction is reachable):
+- GetSpellEq(rules, spell, calcLevel, level, minMaxDamageOnly, forMonster,
+  isNested, noShowLevel, overrideMin, overrideMax, spellBonus, quickSpell,
+  nest) -> SpellEqResult(Text, Lines).
+- FOUR SEPARATE ACCUMULATORS, because the OG assembles them in a fixed
+  order at the end and mixing them changes the output: sDetail, sEndONE
+  (EndCast), sEndTWO (flag abilities), sRemoves. Final order reproduced:
+  detail, EndONE, energy-cost tail, EndTWO, "(@lvl N): " prefix,
+  " for N rounds", " -- RemovesSpells(...)".
+- Ability branches: 122 RemoveSpell (accumulates names), 137 shock
+  (ignored, message only), 140 teleport + 141 tele-map pairing, 148
+  execute-textblock (incl. the val=0 min..max RANGE form), 164 endcast
+  percent, 151 endcast (RECURSES into GetSpellEq; both the single form
+  and the "{A} OR {B}" span form), the flag set
+  (23/51/52/80/97/98/100/108-113/119/138/144/178) -> sEndTWO, 7 DR
+  (tenths, and the useLevel branch divides nMin/nMax by 10 rather than
+  using the string), 12 summon (single + "Summons{A OR B}" span).
+- Level clamp (:4104): level > Cap (Cap>0) -> Cap; level < ReqLevel ->
+  ReqLevel; <1 -> ReqLevel; 0 -> useLevel=false.
+- Nest guard: nest+1 > 19 -> " ... to infinity and beyond?"; quickSpell
+  with nest+1 > 1 -> "(click)".
+- Energy cost tail: Fix(1000/EnergyCost) when 0 < EnergyCost <= 500 AND
+  NOT nested (verified: 250->x4, 333->x3 via Fix(3.003), 500->x2).
+- bNonMagicalSpell (abil 144) rewrites "Damage(-MR)" -> "Damage"
+  case-insensitively, matching VB6's Replace.
+- minMaxDamageOnly returns "min:max[:dur]" for damage spells (using the
+  bonus pair when spellBonus>0 and the ability gets the bonus) else
+  "0:0:0". "(No EQ)" when all four accumulators are empty.
+- AbilityStats(): DR tenths; 42/122/160 spell-name + jumpable "Spell:"
+  line; 43/153/151 nested-PullSpellEQ brackets; 73/124 ability-name;
+  59 class name; 146/12 monster name; the no-header set
+  (1/8/17/18/19/140/141/148) bare value; 178 message-only; 185/1115 item
+  name; else signed header. Plus the 148 special case: if the
+  textblock's action consists ONLY of "cast N" clauses, the spells' own
+  EQ strings REPLACE the textblock ref ("(click)" if any collapse).
+
+LISTVIEW -> LINE LIST: the OG pushed clickable refs into a ListView with
+Tag values. Externalized as SpellEqResult.Lines, formatted to match the
+app's existing jump patterns so they work with zero extra plumbing:
+"Teleport: <room> (map/room)", "Execute: Textblock N  [TB N]",
+"Summon: <monster> (N)", "Spell: <spell> (N)".
+
+WIRING:
+- BuildSpellDetail: adds an "Effects:" line (the EQ string) and a
+  "References:" block (deduped jumpable refs), keeping the existing
+  min/max, LVL-increase, duration, Target/Difficulty/AttType and the S47
+  "Learned From" section.
+- NavigateFromLine: the monster regex now accepts BOTH labels
+  "(?:Monster|Summon):" (Summon lines name a monster; only the wording
+  differs). NEW "Spell: x (N)" branch + SelectSpellInGrid (mirrors
+  SelectMonsterInGrid incl. clearing a hiding name filter) -> spell-to-
+  spell jumps, which is what EndCast/RemoveSpell refs want.
+
+VERIFIED OUTPUT (real DB, level 40 request):
+  fall (336)          Damage 5 to 15, TeleportMap 2, TeleportRoom 1306
+                      + LINE Teleport: Stone Tunnel, Hole Up (2/1306)
+  poison bolt (35)    (@lvl 17): Damage(-MR) 22 to 49, EndCast [poison
+                      bite, (@lvl 10): Poison 6, AffectsLivingOnly for 60
+                      rounds], EvilInCombat, AffectsLivingOnly
+  ethereal shield (4) (@lvl 18): AC Blur +12, DR +1 for 114 rounds --
+                      RemovesSpells(mageshield, protective shell,
+                      manashield, bladed sphere)
+  spear (72)          (@lvl 40): Damage 80 to 120, 20% EndCast [...]
+  meteor swarm (285)  (@lvl 35): Damage(-MR) 20 to 45 x4 times/round
+
+DIVERGENCES (logged): bQuickSpell is a parameter but not bound to a UI
+toggle (the OG used it for grid tooltips); bPercentColumn dropped (it only
+selected which ListView column to write, meaningless once the list is
+externalized); the OG's post-ability tabSpells re-Seek is unnecessary
+because every lookup here is its own query.
+
+LEDGER: the three rows that carried "Deferred (Phase 3 VM)" /
+"READ (head) - DEFERRED" for GetAbilityStats (x2) and PullSpellEQ are now
+"Ported (session 48)" with the file named. README's "Known remaining
+work" is down to the party damage tables.
+
+TESTS (+16 -> 883/883): SpellEq_DamageSpell_RendersMrSuffixAndRange,
+SpellEq_NonMagicalSpell_DropsMrFromDamageLabel,
+SpellEq_Teleport_EmitsJumpableRoomLine,
+SpellEq_Summon_EmitsJumpableMonsterLine,
+SpellEq_Textblock_EmitsJumpableTbLine,
+SpellEq_EndCast_RecursesIntoNestedSpell (also asserts EndTWO ordering),
+SpellEq_EndCastPercent_PrefixesTheClause,
+SpellEq_DrIsTenths_AndRemovesSpellsTrails (also asserts the removes
+clause trails the duration), SpellEq_EnergyCost_YieldsCastsPerRound
+(3 cases), SpellEq_NestedCall_OmitsEnergyCostTail,
+SpellEq_MinMaxDamageOnly_ReturnsTripleOrZeroes,
+SpellEq_NestGuard_StopsRunawayRecursion,
+SpellEq_QuickSpell_CollapsesNestedToClick,
+SpellEq_LevelClamp_UsesCapAndReqLevel.
+
 ## Session 47 — 2026-07-24 — BETA 29: spell "Learned From" sources (jumpable) + EQ-calculator status corrected
 
 USER ASKS: (1) with "Learnable Only" checked a spell still doesn't show

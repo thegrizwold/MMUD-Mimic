@@ -100,14 +100,40 @@ public partial class MainViewModel
                 long.Parse(mr.Groups[2].Value));
             return true;
         }
+        // "Monster: x (33)" and PullSpellEQ's "Summon: x (33)" both name a
+        // monster; the label differs only in wording.
         var mo = System.Text.RegularExpressions.Regex.Match(line,
-            @"Monster: .*\((\d+)\)\s*$");
+            @"(?:Monster|Summon): .*\((\d+)\)\s*$");
         if (mo.Success && SelectMonsterInGrid(long.Parse(mo.Groups[1].Value)))
         {
             RequestTab?.Invoke("monsters");
             return true;
         }
+        // S48: PullSpellEQ's "Spell: x (N)" refs (EndCast/RemoveSpell
+        // targets, learn-spell abilities) jump within the Spells tab.
+        var sp = System.Text.RegularExpressions.Regex.Match(line,
+            @"Spell: .*\((\d+)\)\s*$");
+        if (sp.Success && SelectSpellInGrid(long.Parse(sp.Groups[1].Value)))
+        {
+            RequestTab?.Invoke("spells");
+            return true;
+        }
         return false;
+    }
+
+    /// <summary>S48 — select a spell by number, clearing the name filter
+    /// if it's hiding the row (mirrors SelectMonsterInGrid).</summary>
+    public bool SelectSpellInGrid(long number)
+    {
+        var row = Spells.FirstOrDefault(s => s.Number == number);
+        if (row is null)
+        {
+            FilterText = "";
+            row = Spells.FirstOrDefault(s => s.Number == number);
+            if (row is null) return false;
+        }
+        SelectedSpell = row;
+        return true;
     }
 
     /// <summary>S47 — "Item: name (N)" (optionally prefixed, e.g. the

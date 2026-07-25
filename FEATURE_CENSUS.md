@@ -94,6 +94,25 @@ VB6-exact per-step banker's accumulation).
 - [MISSING] MME-export paste keys (CurrentENC + coin-weight keys);
   EndCast recursion in cast text (shared with monster-detail gap).
 
+## Spell EQ / effect string — PullSpellEQ (S48 beta 30)
+- [DONE] The Spells pane "Effects:" line is the real PullSpellEQ output:
+  ability list with +/- headers, DR in tenths, level-scaled ranges, the
+  nested EndCast bracket form (recursive, with the 19-deep guard and the
+  "N% " prefix from abil 164), RemovesSpells(...) trailer, the
+  energy-cost "xN times/round" tail (suppressed when nested), the flag
+  abilities ordered after EndCast, "for N rounds", the "(@lvl N): "
+  prefix with the OG's scaling gate, and the non-magical
+  "Damage(-MR)"->"Damage" rewrite.
+- [DONE] A "References:" block lists what the OG put in its ListView,
+  all double-click jumpable: "Teleport: <room> (map/room)",
+  "Execute: Textblock N [TB N]", "Summon: <monster> (N)",
+  "Spell: <spell> (N)". SelectSpellInGrid added for spell->spell jumps.
+- [DONE] minMaxDamageOnly ("min:max:dur" / "0:0:0") and quickSpell
+  ("(click)") modes ported.
+- [MISSING] bQuickSpell is a parameter but not bound to a UI toggle (the
+  OG used it for grid tooltips); bPercentColumn dropped as meaningless
+  once the ListView is externalized.
+
 ## Spell "Learned From" sources (S47 beta 29)
 - [DONE] Spells pane lists where a spell is learned: items carrying
   ability 42 (LearnSp) — scanned directly, so it finds teachers the
@@ -103,7 +122,7 @@ VB6-exact per-step banker's accumulation).
 - [DONE] All of it is double-click jumpable: Item: lines -> the item's
   tab (via DoEquipJump), Monster: lines -> Monsters, [TB n] -> the
   textblock viewer. Closes the "Item: line jumps unported" divergence.
-- [MISSING] the rest of PullSpellEQ's OG quartet/nest presentation.
+- [DONE] (S48) PullSpellEQ + GetAbilityStats fully ported — see below.
 
 ## Monster combat dossier (S46 beta 26)
 - [DONE] Damage vs Mob (weapon desc + swings/crit/hit detail + RTK/RTD

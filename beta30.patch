@@ -1,0 +1,930 @@
+diff --git a/PORT_LOG.md b/PORT_LOG.md
+index 31a2d2f..cda7b99 100644
+--- a/PORT_LOG.md
++++ b/PORT_LOG.md
+@@ -1,5 +1,105 @@
+ # PORT LOG (append-only; newest session at top)
+ 
++## Session 48 — 2026-07-25 — BETA 30: PullSpellEQ + GetAbilityStats ported (the last two "Deferred (Phase 3 VM)" ledger entries)
++
++USER: "take care of the flagged issue PullSpellEQ and finish that off the
++tasklist." Icon left alone until release, as instructed.
++
++VB6 READ: modMMudDatabase.bas :: PullSpellEQ (:4067-4527) and its helper
++modMMudFunc.bas :: GetAbilityStats (:2242-2330), both line-by-line.
++
++NEW FILE src/Mme.Data/SpellEqService.cs (MmeDatabase partial, so the
++private GetTextblockAction is reachable):
++- GetSpellEq(rules, spell, calcLevel, level, minMaxDamageOnly, forMonster,
++  isNested, noShowLevel, overrideMin, overrideMax, spellBonus, quickSpell,
++  nest) -> SpellEqResult(Text, Lines).
++- FOUR SEPARATE ACCUMULATORS, because the OG assembles them in a fixed
++  order at the end and mixing them changes the output: sDetail, sEndONE
++  (EndCast), sEndTWO (flag abilities), sRemoves. Final order reproduced:
++  detail, EndONE, energy-cost tail, EndTWO, "(@lvl N): " prefix,
++  " for N rounds", " -- RemovesSpells(...)".
++- Ability branches: 122 RemoveSpell (accumulates names), 137 shock
++  (ignored, message only), 140 teleport + 141 tele-map pairing, 148
++  execute-textblock (incl. the val=0 min..max RANGE form), 164 endcast
++  percent, 151 endcast (RECURSES into GetSpellEq; both the single form
++  and the "{A} OR {B}" span form), the flag set
++  (23/51/52/80/97/98/100/108-113/119/138/144/178) -> sEndTWO, 7 DR
++  (tenths, and the useLevel branch divides nMin/nMax by 10 rather than
++  using the string), 12 summon (single + "Summons{A OR B}" span).
++- Level clamp (:4104): level > Cap (Cap>0) -> Cap; level < ReqLevel ->
++  ReqLevel; <1 -> ReqLevel; 0 -> useLevel=false.
++- Nest guard: nest+1 > 19 -> " ... to infinity and beyond?"; quickSpell
++  with nest+1 > 1 -> "(click)".
++- Energy cost tail: Fix(1000/EnergyCost) when 0 < EnergyCost <= 500 AND
++  NOT nested (verified: 250->x4, 333->x3 via Fix(3.003), 500->x2).
++- bNonMagicalSpell (abil 144) rewrites "Damage(-MR)" -> "Damage"
++  case-insensitively, matching VB6's Replace.
++- minMaxDamageOnly returns "min:max[:dur]" for damage spells (using the
++  bonus pair when spellBonus>0 and the ability gets the bonus) else
++  "0:0:0". "(No EQ)" when all four accumulators are empty.
++- AbilityStats(): DR tenths; 42/122/160 spell-name + jumpable "Spell:"
++  line; 43/153/151 nested-PullSpellEQ brackets; 73/124 ability-name;
++  59 class name; 146/12 monster name; the no-header set
++  (1/8/17/18/19/140/141/148) bare value; 178 message-only; 185/1115 item
++  name; else signed header. Plus the 148 special case: if the
++  textblock's action consists ONLY of "cast N" clauses, the spells' own
++  EQ strings REPLACE the textblock ref ("(click)" if any collapse).
++
++LISTVIEW -> LINE LIST: the OG pushed clickable refs into a ListView with
++Tag values. Externalized as SpellEqResult.Lines, formatted to match the
++app's existing jump patterns so they work with zero extra plumbing:
++"Teleport: <room> (map/room)", "Execute: Textblock N  [TB N]",
++"Summon: <monster> (N)", "Spell: <spell> (N)".
++
++WIRING:
++- BuildSpellDetail: adds an "Effects:" line (the EQ string) and a
++  "References:" block (deduped jumpable refs), keeping the existing
++  min/max, LVL-increase, duration, Target/Difficulty/AttType and the S47
++  "Learned From" section.
++- NavigateFromLine: the monster regex now accepts BOTH labels
++  "(?:Monster|Summon):" (Summon lines name a monster; only the wording
++  differs). NEW "Spell: x (N)" branch + SelectSpellInGrid (mirrors
++  SelectMonsterInGrid incl. clearing a hiding name filter) -> spell-to-
++  spell jumps, which is what EndCast/RemoveSpell refs want.
++
++VERIFIED OUTPUT (real DB, level 40 request):
++  fall (336)          Damage 5 to 15, TeleportMap 2, TeleportRoom 1306
++                      + LINE Teleport: Stone Tunnel, Hole Up (2/1306)
++  poison bolt (35)    (@lvl 17): Damage(-MR) 22 to 49, EndCast [poison
++                      bite, (@lvl 10): Poison 6, AffectsLivingOnly for 60
++                      rounds], EvilInCombat, AffectsLivingOnly
++  ethereal shield (4) (@lvl 18): AC Blur +12, DR +1 for 114 rounds --
++                      RemovesSpells(mageshield, protective shell,
++                      manashield, bladed sphere)
++  spear (72)          (@lvl 40): Damage 80 to 120, 20% EndCast [...]
++  meteor swarm (285)  (@lvl 35): Damage(-MR) 20 to 45 x4 times/round
++
++DIVERGENCES (logged): bQuickSpell is a parameter but not bound to a UI
++toggle (the OG used it for grid tooltips); bPercentColumn dropped (it only
++selected which ListView column to write, meaningless once the list is
++externalized); the OG's post-ability tabSpells re-Seek is unnecessary
++because every lookup here is its own query.
++
++LEDGER: the three rows that carried "Deferred (Phase 3 VM)" /
++"READ (head) - DEFERRED" for GetAbilityStats (x2) and PullSpellEQ are now
++"Ported (session 48)" with the file named. README's "Known remaining
++work" is down to the party damage tables.
++
++TESTS (+16 -> 883/883): SpellEq_DamageSpell_RendersMrSuffixAndRange,
++SpellEq_NonMagicalSpell_DropsMrFromDamageLabel,
++SpellEq_Teleport_EmitsJumpableRoomLine,
++SpellEq_Summon_EmitsJumpableMonsterLine,
++SpellEq_Textblock_EmitsJumpableTbLine,
++SpellEq_EndCast_RecursesIntoNestedSpell (also asserts EndTWO ordering),
++SpellEq_EndCastPercent_PrefixesTheClause,
++SpellEq_DrIsTenths_AndRemovesSpellsTrails (also asserts the removes
++clause trails the duration), SpellEq_EnergyCost_YieldsCastsPerRound
++(3 cases), SpellEq_NestedCall_OmitsEnergyCostTail,
++SpellEq_MinMaxDamageOnly_ReturnsTripleOrZeroes,
++SpellEq_NestGuard_StopsRunawayRecursion,
++SpellEq_QuickSpell_CollapsesNestedToClick,
++SpellEq_LevelClamp_UsesCapAndReqLevel.
++
+ ## Session 47 — 2026-07-24 — BETA 29: spell "Learned From" sources (jumpable) + EQ-calculator status corrected
+ 
+ USER ASKS: (1) with "Learnable Only" checked a spell still doesn't show
+diff --git a/FEATURE_CENSUS.md b/FEATURE_CENSUS.md
+index 8566666..a6d0c74 100644
+--- a/FEATURE_CENSUS.md
++++ b/FEATURE_CENSUS.md
+@@ -94,6 +94,25 @@ VB6-exact per-step banker's accumulation).
+ - [MISSING] MME-export paste keys (CurrentENC + coin-weight keys);
+   EndCast recursion in cast text (shared with monster-detail gap).
+ 
++## Spell EQ / effect string — PullSpellEQ (S48 beta 30)
++- [DONE] The Spells pane "Effects:" line is the real PullSpellEQ output:
++  ability list with +/- headers, DR in tenths, level-scaled ranges, the
++  nested EndCast bracket form (recursive, with the 19-deep guard and the
++  "N% " prefix from abil 164), RemovesSpells(...) trailer, the
++  energy-cost "xN times/round" tail (suppressed when nested), the flag
++  abilities ordered after EndCast, "for N rounds", the "(@lvl N): "
++  prefix with the OG's scaling gate, and the non-magical
++  "Damage(-MR)"->"Damage" rewrite.
++- [DONE] A "References:" block lists what the OG put in its ListView,
++  all double-click jumpable: "Teleport: <room> (map/room)",
++  "Execute: Textblock N [TB N]", "Summon: <monster> (N)",
++  "Spell: <spell> (N)". SelectSpellInGrid added for spell->spell jumps.
++- [DONE] minMaxDamageOnly ("min:max:dur" / "0:0:0") and quickSpell
++  ("(click)") modes ported.
++- [MISSING] bQuickSpell is a parameter but not bound to a UI toggle (the
++  OG used it for grid tooltips); bPercentColumn dropped as meaningless
++  once the ListView is externalized.
++
+ ## Spell "Learned From" sources (S47 beta 29)
+ - [DONE] Spells pane lists where a spell is learned: items carrying
+   ability 42 (LearnSp) — scanned directly, so it finds teachers the
+@@ -103,7 +122,7 @@ VB6-exact per-step banker's accumulation).
+ - [DONE] All of it is double-click jumpable: Item: lines -> the item's
+   tab (via DoEquipJump), Monster: lines -> Monsters, [TB n] -> the
+   textblock viewer. Closes the "Item: line jumps unported" divergence.
+-- [MISSING] the rest of PullSpellEQ's OG quartet/nest presentation.
++- [DONE] (S48) PullSpellEQ + GetAbilityStats fully ported — see below.
+ 
+ ## Monster combat dossier (S46 beta 26)
+ - [DONE] Damage vs Mob (weapon desc + swings/crit/hit detail + RTK/RTD
+diff --git a/README.md b/README.md
+index 1e7313e..7934653 100644
+--- a/README.md
++++ b/README.md
+@@ -64,17 +64,12 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
+ dotnet test
+ ```
+ 
+-866 tests. Anchors were derived from independent replicas of the VB6
++883 tests. Anchors were derived from independent replicas of the VB6
+ math (not from the port itself); real-database tests are guarded on the
+ converted `mmud-1.11p.db` being present.
+ 
+ ## Known remaining work
+ 
+-- **Spell detail panel** (`PullSpellEQ` :4067–4527, ~460 lines): the
+-  display-string builder over already-ported math. The spell pane shows
+-  the level-scaled min/max, duration, ability text and (S47) the
+-  jumpable "Learned From" sources; the remaining OG quartet/nest
+-  presentation is still to come.
+ - **Party damage tables** (GetPreCalculatedMonsterDamage): the lair path
+   currently divides final Exp/Hr by party size, matching frmMain's lair
+   behavior.
+@@ -86,7 +81,12 @@ accumulation (class/race ability scans, encumbrance-first ordering,
+ bless, the equipped + carried item loop, per-slot source tips), with
+ real-database anchors and the divergence list recorded in
+ `docs/PARITY_LEDGER.md`. `EquipmentCalc_AccumulatesWornItemIntoDerivedStats`
+-pins the behaviour directly.
++pins the behaviour directly. The **spell detail panel**
++(`PullSpellEQ` :4067–4527 plus `GetAbilityStats`) shipped in session 48 —
++`Mme.Data/SpellEqService.cs` renders the full effect string (nested
++EndCast recursion, RemovesSpells, DR tenths, the energy-cost
++"xN times/round" tail, flag abilities) and returns the teleport /
++textblock / summon / spell refs as clickable lines.
+ 
+ ## For contributors / future sessions
+ 
+diff --git a/docs/PARITY_LEDGER.md b/docs/PARITY_LEDGER.md
+index 82aaf91..e252ff1 100644
+--- a/docs/PARITY_LEDGER.md
++++ b/docs/PARITY_LEDGER.md
+@@ -95,7 +95,7 @@ Dependency audit is run per proc before porting (grep body for `nGlobal`,
+ | CalculateAccuracy | bGreaterMUD ×6; calls GetClassCombat (tabClasses) | Ported | CombatMath.CalculateAccuracy | EXTERNALIZED DB → classCombat param (CombatLVL−2; miss→1), consumed only when nClass>0. PINs: pity accy gate `worn=0 And (stock Or plusAccy=0)`; stock odd-number penalty Fix(x/2)·2; stock-only sqrt correction loop; per-stat gmud/bash gates; raw-concat " *smash/bash" text quirk; GMUD smash ×3/2 |
+ | GetClassCombat | tabClasses (modMMudDatabase.bas) | Externalized | — | Phase 1e; contract documented on classCombat param |
+ | CalculateAttackDefense | bGreaterMUD ×3; calls GetHitMin/GetHitCap/CalcDodgeVSAccuracy | Ported | CombatMath.CalculateAttackDefense | **PIN: colon-chained lower clamps are DEAD CODE** (single-line Ifs) — only upper clamps live, do not "fix". Evil tiers via EvilPoints enum (banker's-rounded VB6 Double literals, "Villian" typo kept); stock backstab dodge `\5`; GMUD vileward evil gates ≤Seedy→0 / ≤Criminal→½ then `\10` |
+-| GetAbilityStats | UI + DB heavy | Deferred | — | Phase 3 VM territory |
++| GetAbilityStats | UI + DB heavy | **Ported (session 48)** | Mme.Data/SpellEqService.cs (AbilityStats) | Full port: DR tenths, spell/ability/class/monster/item name branches, the no-header set (1/8/17/18/19/140/141/148), the 148-with-only-"cast N" textblock substitution, and the 43/153/151 nested-PullSpellEQ brackets. ListView rows externalized to a line list |
+ | CalcMoneyRequiredToTrain | clean | Ported | CharacterMath.CalcMoneyRequiredToTrain | Currency; Fix then ·10 |
+ | CalcMovementSpeed | bGreaterMUD ×1 | Ported | IGameEngineRules.MovementSpeed | Shared `out:` floor 1000 both engines; GMUD (pct/100)²·2000 → CLng banker's (encum 33 → 1318 tested) |
+ | CalcRestingRate | bGreaterMUD ×1 | Ported | CharacterMath.CalcRestingRate | Divisor 750/500 via rules. **PIN: VB6 Long overflow (error 6) → −1** — emulated with int-range checks on every Long intermediate |
+@@ -139,7 +139,7 @@ Dependency audit is run per proc before porting (grep body for `nGlobal`,
+ | GetCurrentSpellMinMax | **modMMudDatabase.bas**, GetMaxLevel | Ported | SpellMath.GetCurrentSpellMinMax | Lives in the DB module but is pure given the record — pulled forward into wave 3. GetMaxLevel externalized as maxLevel = 255. Formula path builds "base+(inc*lvl)" strings, sets ByRef noHeader; useLevel ByRef downgraded when nothing scales; bonus multiplies min/max via Fix but NEVER duration (PIN); **PIN: the returned struct's NoHeader FIELD is never assigned by VB6 — only the ByRef param**. **C# ref params (useLevel, noHeader) moved ahead of the optionals vs VB6 order** — documented in the doc header; discard overload provided |
+ | CalcRoundsToOOM | **modMain.bas** | Ported | SpellMath.CalcRoundsToOom | Pure despite living in modMain — pulled forward. Aura pre-check regenBetween = CLng(regenTicks·regen) vs cost + (cost/2)(1−chance/100); fail-refund Fix(cost/2) on the accumulated schedule ALSO resets the aura recast counter (doubles recast rate); **PIN: precheck, round>200-at-full-mana, and rounds=999 all leave the Integer default → 0 (behaviorally identical never-OOM exits)** |
+ | CalculateSpellCast | tabSpells ×81, bGreaterMUD ×6, GetMaxLevel, tCharacterProfile | Ported | SpellMath.CalculateSpellCast | Record + maxLevel externalized; consumes only 5 profile fields (SpellDmgBonus, Spellcasting, MaxMana, SpellOverhead, ManaRegen). **PINs: (a) abils 8/18/176 with AbilVal ≠ 0 ASSIGN the accumulators (overwrite, not add); (b) abil 17 with AbilVal ≠ 0 reuses the max-damage resist temp for the min add; (c) nDamageResisted accumulates points in the loop then is OVERWRITTEN with ResistPct_SignedOfBase percent at the end (drain-overwrite case yields −233% tested); (d) elemental resistance hits damage only for abil 1 but damage+min for abil 17 — MinRoundDmg can exceed AvgRoundDmg (tested); (e) GMUD gates: abil 8/18 bSpellValueModified GMUD-only, abil 176 GMUD-only; (f) `GetAbilityStats(n, 0, , False)` collapses to GetAbilityName — verified against its body, GetAbilityStats itself stays Phase 3** |
+-| GetAbilityStats | ListView UI + GetAbilityName | Deferred (Phase 3 VM) | — | nValue=0/no-ListView path ≡ GetAbilityName (consumed by CalculateSpellCast via that equivalence); the rest is UI formatting |
++| GetAbilityStats | ListView UI + GetAbilityName | **Ported (session 48)** | Mme.Data/SpellEqService.cs (AbilityStats) | The nValue=0 path still ≡ GetAbilityName (so CalculateSpellCast's use is unchanged); the value-bearing branches are now all rendered. bPercentColumn dropped (chose a ListView column; meaningless once the list is externalized) |
+ | CalculateAttack | tabItems (WeaponRecord: 9 fields + Abil/AbilVal ×20), PullSpellEQ + GetSpellName, frmMain.lblInvenCharStat(10).Tag UI read, nGlobalChar* session globals, GetClassCombat/GetClassStealth/GetRaceStealth, GetMaxLevel, bV111iData, bGreaterMUD ×13, nGlobalDatVer | Ported (wave 4, full 779-line read) | AttackMath.CalculateAttack | SEAMS: weapon record externalized (null / unlisted negative weaponNumber ≡ failed Seek → empty result); loadedState DTO replaces the nGlobalChar* globals (null ≡ fresh zeroed session); classCombat / classStealthFromClass / raceStealthFromRace are pre-resolved lookups; uiAccuracyFallback replaces the label-Tag read; castDescription delegate must return `GetSpellName(n, bHide) & ", " & PullSpellEQ(True,0,n,,,,True,,,,,SpellDmgBonus)` — null skips the build (≡ empty sCasts) while the Abil 43/114/1114 ordering logic stays ported. PINS: (a) proxies −2..−5 skip bAbil68Slow and leave sAttackDesc empty ("backstab with "); (b) the %spell variable is SHARED with the stock negative-dodge blend — an Abil 43 with no preceding Abil 114 can pick up the leftover blend fraction as its percent; (c) surprise/smash nSwings=1 is immediately recomputed (order fidelity); (d) CalcEnergyUsed backstab arg is unreachable-True, kept verbatim; (e) GMUD MA damage formulas banker's-round (Long = Double expr) while stock uses Fix chains; (f) stock kick/jk use PRE-roll 1.33/1.66 (before DR), GMUD uses POST-DR multipliers + accy −10/−15; (g) stock DR subtracts BEFORE the damage multiplier, GMUD after; (h) multi-match cast parsing overwrites nExtraAvgHit/Swing per match and the final divide averages only the LAST match over the match count; nCount=0 leaves the previous match's value; (i) on the manual-damage path VB6 reads a STALE tabItems cursor in the casts build — C# requires the record and skips the build when absent; (j) crit diminishing returns: stock 40+Fix((c−40)/3) cap 99, GMUD hard cap 65; (k) the tabItems re-Seek inside the ability loop is DB-cursor housekeeping with no C# analogue — dropped |
+ | GetAbilityStatSlot (nEquip half) | **modMain.bas**; sText half calls GetAbilityStats (UI) | Ported (partial) | AttackMath.GetAbilityEquipSlot | Pure ability → equip-slot switch; default −1 set before the Select (Case 0 no-op keeps it); commented-out cases (9 shadow, 28, 38 tracking, 39 thievery, 72 damageshield) return −1; the sText/GetAbilityStats half stays Phase 3 |
+ | tAttackDamage / WeaponEquipStats / LoadedCharState | — | Ported | Model/AttackTypes.cs | tAttackDamage verbatim; WeaponEquipStats/LoadedCharState are the externalized nGlobalChar* session globals |
+@@ -233,7 +233,7 @@ DROPPED — never affects math. VB6-Private helpers made public for testing.
+ | SpellDoesDamage (:4733–4786) | tabSpells seek; self-recursion via abil 151 | Ported (wave 5) | SpellDamageMath.SpellDoesDamage | bNotDuration excludes Dur > 0 or (DurIncLVLs > 0 AND DurInc > 0) up front; abils 1/8/17 → true; PIN: the abil-151 recursion does NOT forward bNotDuration — the chained spell's duration is never checked (no stock spell exercises this; proven with a synthetic resolver). Anchors: 18 true/true, 409 true/false(notDuration) |
+ | GetMaxLevel (:155–164) | gAvgLevelMaxAllStats global (param seam); RoundUpTo5 (Phase 1a) | Ported (wave 5) | SpellDamageMath.GetMaxLevel | 255 unless RoundUpTo5(avg) STRICTLY exceeds 255 (256 → 260; 253 → 255 because RoundUpTo5(253) = 255 is not > 255). Previously only externalized as maxLevel = 255 on wave-3 consumers |
+ | GetCurrentSpellMinMax (:3941–4067) | — | Ported in **wave 3** (SpellMath.GetCurrentSpellMinMax) — wave 5 added an independent CROSS-CHECK | Mme.Core/Formulas/SpellMath.cs | Wave 5 re-read the VB6 and re-derived expectations from scratch, briefly produced a duplicate implementation, then caught it via this ledger — duplicate deleted, and the fresh expectations were retargeted at the wave-3 port as 5 cross-check tests (numeric scaling, formula strings + maxLevel pull at level 0, bonus Fix + "+N%" suffix on min/max only, all-static special path, override suppression). All pass — mutual validation of both readings |
+-| PullSpellEQ (:4067–4527, ~460 lines) | GetCurrentSpellMinMax, quartet, ListView UI, bQuickSpell/nSpellNest globals | READ (head) — DEFERRED to the spell detail panel wave | — | Returns a display STRING (ListView population, "(click)" nesting via bQuickSpell, nSpellNest > 19 guard "to infinity and beyond?"). Head pins recorded: bUseLevel = bCalcLevel with global-filter level pull, Cap/ReqLevel clamp (skipped for monsters), nLevel < 1 → ReqLevel, then GetCurrentSpellMinMax. Parity here is string formatting — belongs with the detail panel |
++| PullSpellEQ (:4067–4527, ~460 lines) | GetCurrentSpellMinMax, quartet, ListView UI, bQuickSpell/nSpellNest globals | **Ported (session 48)** | Mme.Data/SpellEqService.cs (GetSpellEq) | Returns a display STRING (ListView population, "(click)" nesting via bQuickSpell, nSpellNest > 19 guard "to infinity and beyond?"). Head pins recorded: bUseLevel = bCalcLevel with global-filter level pull, Cap/ReqLevel clamp (skipped for monsters), nLevel < 1 → ReqLevel, then GetCurrentSpellMinMax. Parity here is string formatting — belongs with the detail panel |
+ | GetSpellManaCost (:1909) | tabSpells seek | Ported (wave 6) | MmeDatabase.GetSpellManaCost | PIN: 0 < EnergyCost ≤ 500 multiplies ManaCost by Fix(1000/EnergyCost) — the round-total mana of a multi-cast. Anchors: spell 18 (E1000 → plain 4), 285 (E250 → 16) |
+ | GetClassCombat (:2229) | tabClasses seek | Ported (wave 6) | MmeDatabase.GetClassCombat | CombatLVL − 2; default/miss 1. Trailing `GetClassCombat = 1` after Exit Function is unreachable dead code — noted, dropped. Anchors: Warrior 6 → 4, Priest 3 → 1 |
+ | GetClassStealth (:2542) | tabClasses seek; frmMain global-filter fallback (EXTERNALIZED) | Ported (wave 6) | MmeDatabase.GetClassStealth | Abil 103 scan. The nNum = 0 path read the UI class combo — externalized: callers resolve first, 0 → false. Anchors: Thief true, Warrior false |
+diff --git a/src/Mme.App.ViewModels/MainViewModel.Browse.cs b/src/Mme.App.ViewModels/MainViewModel.Browse.cs
+index d022af3..17a81d1 100644
+--- a/src/Mme.App.ViewModels/MainViewModel.Browse.cs
++++ b/src/Mme.App.ViewModels/MainViewModel.Browse.cs
+@@ -425,7 +425,24 @@ public sealed partial class MainViewModel
+         }
+         if (atLvl.NDur > 0) sb.AppendLine($"Duration: {atLvl.NDur} rounds");
+         sb.AppendLine();
++        // S48: the real PullSpellEQ effect string (nested EndCast clauses,
++        // RemovesSpells, the energy-cost "xN times/round" tail, flags)
++        var eq = _db.GetSpellEq(Rules, number, true, (int)lvl);
++        if (eq.Text.Length > 0 && eq.Text != "(No EQ)")
++        {
++            sb.AppendLine($"Effects: {eq.Text}");
++            sb.AppendLine();
++        }
+         sb.Append(_db.GetSpellAbilityText(number, Rules));
++        // jumpable refs PullSpellEQ found (teleport rooms, executed
++        // textblocks, summoned monsters, referenced spells)
++        if (eq.Lines.Count > 0)
++        {
++            sb.AppendLine();
++            sb.AppendLine();
++            sb.AppendLine("References:");
++            foreach (string l in eq.Lines.Distinct()) sb.AppendLine(l);
++        }
+         // S47: where it's learned — jumpable Item/Monster/Textblock lines
+         var src = _db.GetSpellSourceLines(number);
+         if (src.Count > 0)
+diff --git a/src/Mme.App.ViewModels/MainViewModel.Map.cs b/src/Mme.App.ViewModels/MainViewModel.Map.cs
+index 3f653ff..ab06a61 100644
+--- a/src/Mme.App.ViewModels/MainViewModel.Map.cs
++++ b/src/Mme.App.ViewModels/MainViewModel.Map.cs
+@@ -100,16 +100,42 @@ public partial class MainViewModel
+                 long.Parse(mr.Groups[2].Value));
+             return true;
+         }
++        // "Monster: x (33)" and PullSpellEQ's "Summon: x (33)" both name a
++        // monster; the label differs only in wording.
+         var mo = System.Text.RegularExpressions.Regex.Match(line,
+-            @"Monster: .*\((\d+)\)\s*$");
++            @"(?:Monster|Summon): .*\((\d+)\)\s*$");
+         if (mo.Success && SelectMonsterInGrid(long.Parse(mo.Groups[1].Value)))
+         {
+             RequestTab?.Invoke("monsters");
+             return true;
+         }
++        // S48: PullSpellEQ's "Spell: x (N)" refs (EndCast/RemoveSpell
++        // targets, learn-spell abilities) jump within the Spells tab.
++        var sp = System.Text.RegularExpressions.Regex.Match(line,
++            @"Spell: .*\((\d+)\)\s*$");
++        if (sp.Success && SelectSpellInGrid(long.Parse(sp.Groups[1].Value)))
++        {
++            RequestTab?.Invoke("spells");
++            return true;
++        }
+         return false;
+     }
+ 
++    /// <summary>S48 — select a spell by number, clearing the name filter
++    /// if it's hiding the row (mirrors SelectMonsterInGrid).</summary>
++    public bool SelectSpellInGrid(long number)
++    {
++        var row = Spells.FirstOrDefault(s => s.Number == number);
++        if (row is null)
++        {
++            FilterText = "";
++            row = Spells.FirstOrDefault(s => s.Number == number);
++            if (row is null) return false;
++        }
++        SelectedSpell = row;
++        return true;
++    }
++
+     /// <summary>S47 — "Item: name (N)" (optionally prefixed, e.g. the
+     /// Spells pane's "(learn) Item: ..." / "    requires Item: ...")
+     /// yields N, else 0. Item jumps live in the window because they may
+diff --git a/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs b/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+index 8e23fa4..72286f4 100644
+--- a/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
++++ b/tests/Mme.Core.Tests/Wave18AttackPanelTests.cs
+@@ -3776,6 +3776,171 @@ public class Session46CombatDossierTests
+     }
+ 
+     // ---- S47: spell "Learned From" sources + click-through parsing ----
++    // ==== S48: PullSpellEQ + GetAbilityStats (the last two "Deferred
++    // (Phase 3 VM)" ledger entries). Anchors read off the VB6 assembly
++    // order: detail, EndONE, energy-cost tail, EndTWO, "(@lvl N):"
++    // prefix, " for N rounds", " -- RemovesSpells(...)".
++    private static Mme.Data.MmeDatabase.SpellEqResult Eq(
++        Mme.Data.MmeDatabase db, long spell, int level = 40)
++        => db.GetSpellEq(Mme.Core.Engine.StockRules.Instance, spell, true, level);
++
++    [Fact]
++    public void SpellEq_DamageSpell_RendersMrSuffixAndRange()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // magic missile: plain damage, MR-reducible
++        Assert.Contains("Damage(-MR)", Eq(db, 1).Text);
++    }
++
++    [Fact]
++    public void SpellEq_NonMagicalSpell_DropsMrFromDamageLabel()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // "fall" carries abil 144 (non-magical) -> Damage(-MR) becomes Damage
++        string t = Eq(db, 336).Text;
++        Assert.Contains("Damage", t);
++        Assert.DoesNotContain("Damage(-MR)", t);
++    }
++
++    [Fact]
++    public void SpellEq_Teleport_EmitsJumpableRoomLine()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var r = Eq(db, 336);                 // abil 141 map=2, abil 140 room=1306
++        Assert.Contains(r.Lines, l => l.StartsWith("Teleport: ")
++            && l.EndsWith("(2/1306)"));
++    }
++
++    [Fact]
++    public void SpellEq_Summon_EmitsJumpableMonsterLine()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var r = Eq(db, 90);                  // hydra head create -> monster 590
++        Assert.Contains("Summon hydra head", r.Text);
++        Assert.Contains(r.Lines, l => l == "Summon: hydra head (590)");
++    }
++
++    [Fact]
++    public void SpellEq_Textblock_EmitsJumpableTbLine()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var r = Eq(db, 2);                   // illuminate -> textblock 4012
++        Assert.Contains(r.Lines, l => l.Contains("Execute: Textblock 4012")
++            && l.Contains("[TB 4012]"));
++    }
++
++    [Fact]
++    public void SpellEq_EndCast_RecursesIntoNestedSpell()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // poison bolt endcasts "poison bite"; the nested spell's own EQ is
++        // rendered inside the brackets
++        string t = Eq(db, 35).Text;
++        Assert.Contains("EndCast [poison bite,", t);
++        Assert.Contains("Poison", t);
++        // flag abilities land AFTER the endcast clause (sEndTWO ordering)
++        Assert.True(t.IndexOf("EndCast", StringComparison.Ordinal)
++            < t.IndexOf("AffectsLivingOnly", StringComparison.Ordinal));
++    }
++
++    [Fact]
++    public void SpellEq_EndCastPercent_PrefixesTheClause()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // spear: abil 164 = 20 -> "20% EndCast [...]"
++        Assert.Contains("20% EndCast [", Eq(db, 72).Text);
++    }
++
++    [Fact]
++    public void SpellEq_DrIsTenths_AndRemovesSpellsTrails()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // ethereal shield: abil 7 value 10 -> "DR +1"; four abil-122 targets
++        string t = Eq(db, 4).Text;
++        Assert.Contains("DR +1", t);
++        Assert.Contains("RemovesSpells(", t);
++        Assert.Contains("mageshield", t);
++        // the removes clause is the very last thing on the line
++        Assert.EndsWith(")", t);
++        Assert.True(t.IndexOf("for ", StringComparison.Ordinal)
++            < t.IndexOf("RemovesSpells", StringComparison.Ordinal));
++    }
++
++    [Theory]
++    [InlineData(285, "x4 times/round")]   // EnergyCost 250 -> 1000/250
++    [InlineData(207, "x3 times/round")]   // 333 -> Fix(3.003)
++    [InlineData(340, "x2 times/round")]   // 500 -> 2
++    public void SpellEq_EnergyCost_YieldsCastsPerRound(long spell, string want)
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        Assert.Contains(want, Eq(db, spell).Text);
++    }
++
++    [Fact]
++    public void SpellEq_NestedCall_OmitsEnergyCostTail()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        // VB6 gates the "times/round" tail on Not bIsNested
++        var nested = db.GetSpellEq(Mme.Core.Engine.StockRules.Instance,
++            285, true, 40, isNested: true);
++        Assert.DoesNotContain("times/round", nested.Text);
++    }
++
++    [Fact]
++    public void SpellEq_MinMaxDamageOnly_ReturnsTripleOrZeroes()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var rules = Mme.Core.Engine.StockRules.Instance;
++        // a damage spell yields "min:max" (+ ":dur" when it has one)
++        var dmg = db.GetSpellEq(rules, 1, true, 40, minMaxDamageOnly: true);
++        Assert.Matches(@"^\d+:\d+(:\d+)?$", dmg.Text);
++        // a non-damage spell yields the sentinel
++        var heal = db.GetSpellEq(rules, 4, true, 40, minMaxDamageOnly: true);
++        Assert.Equal("0:0:0", heal.Text);
++    }
++
++    [Fact]
++    public void SpellEq_NestGuard_StopsRunawayRecursion()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var deep = db.GetSpellEq(Mme.Core.Engine.StockRules.Instance,
++            1, true, 40, nest: 19);
++        Assert.Contains("infinity and beyond", deep.Text);
++    }
++
++    [Fact]
++    public void SpellEq_QuickSpell_CollapsesNestedToClick()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var q = db.GetSpellEq(Mme.Core.Engine.StockRules.Instance,
++            1, true, 40, quickSpell: true, nest: 1);
++        Assert.Equal("(click)", q.Text);
++    }
++
++    [Fact]
++    public void SpellEq_LevelClamp_UsesCapAndReqLevel()
++    {
++        if (!File.Exists(DbPath)) return;
++        using var db = Mme.Data.MmeDatabase.Open(DbPath);
++        var rec = db.GetSpellRecord(35)!;
++        // asking for level 99 clamps to the spell's Cap in the "(@lvl N)" tag
++        string t = Eq(db, 35, 99).Text;
++        if (rec.Cap > 0) Assert.Contains($"(@lvl {rec.Cap})", t);
++    }
++
+     [Fact]
+     public void SpellSource_ItemTaught_ListsTeachingItem()
+     {
+diff --git a/src/Mme.Data/SpellEqService.cs b/src/Mme.Data/SpellEqService.cs
+new file mode 100644
+index 0000000..9b989ed
+--- /dev/null
++++ b/src/Mme.Data/SpellEqService.cs
+@@ -0,0 +1,454 @@
++using Mme.Core.Engine;
++using Mme.Core.Formulas;
++using Mme.Core.Model;
++using Mme.Core.Text;
++
++namespace Mme.Data;
++
++/// <summary>The spell "EQ" (effect) display string — VB6
++/// modMMudDatabase.bas :: PullSpellEQ (:4067–4527) plus its helper
++/// modMMudFunc.bas :: GetAbilityStats (:2242–2330), both read
++/// line-by-line. These were the last two entries still marked
++/// "Deferred (Phase 3 VM)" in the parity ledger.
++///
++/// PullSpellEQ walks the spell's 10 ability slots and folds them into one
++/// human string, with four accumulators kept separate because the OG
++/// assembles them in a fixed order at the end:
++///   sDetail  — the main ability list
++///   sEndONE  — EndCast clauses (these RECURSE into PullSpellEQ)
++///   sEndTWO  — the flag abilities (anti-magic, good/evil only, …)
++///   sRemoves — RemoveSpell targets, rendered "RemovesSpells(a, b)"
++/// Final order: detail, EndONE, the energy-cost "xN times/round" tail,
++/// EndTWO, then the "(@lvl N): " prefix, then " for N rounds", then
++/// " -- RemovesSpells(...)".
++///
++/// Alongside the string the OG pushes rows into a ListView for the
++/// clickable refs (teleport destinations, executed textblocks, summoned
++/// monsters, referenced spells). That ListView is UI, so here those come
++/// back as a separate line list, formatted to match the jump patterns the
++/// app already recognizes:
++///   "Teleport: &lt;room&gt; (map/room)"      → room nav
++///   "Execute: Textblock N  [TB N]"     → textblock viewer
++///   "Summon: &lt;monster&gt; (N)"           → monster nav
++///   "Spell: &lt;spell&gt; (N)"               → spell nav
++///
++/// DIVERGENCES (logged):
++///  - bQuickSpell (the OG's terse one-line mode for grid tooltips, which
++///    collapses nested spells to "(click)") is not wired to a UI toggle
++///    here; QuickSpell is exposed as a parameter and defaults false.
++///  - bPercentColumn only chose which ListView column the OG wrote to;
++///    with the list externalized it has no meaning and is dropped.
++///  - The OG re-Seeks tabSpells after ability calls that move the record
++///    cursor; irrelevant here since each lookup is its own query.
++/// </summary>
++public sealed partial class MmeDatabase
++{
++    /// <summary>Result of PullSpellEQ: the assembled string plus the
++    /// jumpable refs the OG would have put in its ListView.</summary>
++    public sealed record SpellEqResult(string Text, List<string> Lines);
++
++    private const int SpellNestLimit = 19;
++
++    /// <summary>VB6 PullSpellEQ (:4067). <paramref name="level"/> 0 with
++    /// <paramref name="calcLevel"/> true means "caller had no level" — the
++    /// OG reads the global filter box there, so pass the character level
++    /// in explicitly.</summary>
++    public SpellEqResult GetSpellEq(IGameEngineRules rules, long spell,
++        bool calcLevel, int level = 0, bool minMaxDamageOnly = false,
++        bool forMonster = false, bool isNested = false,
++        bool noShowLevel = false, long overrideMin = 0, long overrideMax = 0,
++        short spellBonus = 0, bool quickSpell = false, int nest = 0)
++    {
++        var lines = new List<string>();
++        // :4084 nest guards, in the OG's order
++        if (nest + 1 > SpellNestLimit)
++            return new(" ... to infinity and beyond?", lines);
++        if (quickSpell && nest + 1 > 1) return new("(click)", lines);
++
++        var rec = GetSpellRecord(spell);
++        if (rec is null) return new("?", lines);
++
++        // ---- level clamp (:4104) ----
++        bool useLevel = calcLevel;
++        if (useLevel)
++        {
++            if (!forMonster)
++            {
++                if (level > rec.Cap && rec.Cap > 0) level = rec.Cap;
++                if (level < rec.ReqLevel) level = rec.ReqLevel;
++            }
++            if (level < 1) level = rec.ReqLevel;
++            if (level == 0) useLevel = false;
++        }
++
++        bool noHeader = false;
++        var mm = SpellMath.GetCurrentSpellMinMax(rec, ref useLevel,
++            ref noHeader, checked((short)Math.Min(level, short.MaxValue)),
++            overrideMin, overrideMax);
++        decimal nMin = mm.NMin, nMax = mm.NMax;
++        string sMin = mm.SMin, sMax = mm.SMax, sDur = mm.SDur;
++
++        // bonus pass (:4131) — only the damage-ish abilities consume it
++        string sMinB = "", sMaxB = "";
++        if (spellBonus > 0)
++        {
++            bool ul = calcLevel, nh = false;
++            var mb = SpellMath.GetCurrentSpellMinMax(rec, ref ul, ref nh,
++                checked((short)Math.Min(level, short.MaxValue)),
++                overrideMin, overrideMax, spellBonus);
++            sMinB = mb.SMin; sMaxB = mb.SMax;
++        }
++
++        string detail = "", endOne = "", endTwo = "", removes = "";
++        string endCastPercent = "";
++        bool doesDamage = false, getsBonus = false, nonMagical = false;
++
++        for (int x = 0; x <= 9; x++)
++        {
++            int a = rec.Abil[x];
++            if (a == 0) continue;
++            if (a == 144) nonMagical = true;
++
++            getsBonus = false;
++            switch (a)
++            {
++                case 1: case 17: getsBonus = true; doesDamage = true; break;
++                case 8: case 18:
++                    if (rules.Kind == EngineKind.GreaterMud) getsBonus = true;
++                    doesDamage = true; break;
++                case 19: doesDamage = true; break;
++            }
++            if (minMaxDamageOnly) break;
++
++            string minHdr = "", maxHdr = "";
++            long v = rec.AbilVal[x];
++
++            if (a == 122)                            // RemoveSpell
++            {
++                if (quickSpell) { if (removes.Length == 0) removes = "click"; }
++                else
++                {
++                    if (removes.Length > 0) removes += ", ";
++                    removes += GetSpellName(v);
++                }
++            }
++            else if (a == 137) { /* shock — message only (:4168) */ }
++            else if (v == 0)
++            {
++                switch (a)
++                {
++                    case 140:                        // teleport
++                        detail = TextUtils.AutoAppend(detail,
++                            AbilityStats(rules, a, 0, lines, calcLevel, nest)
++                            + " " + Span(sMin, sMax));
++                        EmitTeleportRange(rec, sMin, sMax, lines);
++                        break;
++                    case 148:                        // execute textblock
++                        detail = TextUtils.AutoAppend(detail,
++                            AbilityStats(rules, a, 0, lines, calcLevel, nest)
++                            + " " + Span(sMin, sMax));
++                        for (long y = ValL(sMin); y <= ValL(sMax); y++)
++                            lines.Add($"Execute: Textblock {y}  [TB {y}]");
++                        break;
++                    case 164: endCastPercent = $"{v}% "; break;
++                    case 151:                        // endcast
++                        endOne = TextUtils.AutoAppend(endOne,
++                            endCastPercent + EndCastClause(rules, nMin, nMax,
++                                calcLevel, level, quickSpell, nest));
++                        break;
++                    case 23: case 51: case 52: case 80: case 97: case 98:
++                    case 100: case 108: case 109: case 110: case 111:
++                    case 112: case 113: case 119: case 138: case 144:
++                    case 178:
++                        endTwo = TextUtils.AutoAppend(endTwo,
++                            AbilityStats(rules, a, 0, null, calcLevel, nest));
++                        break;
++                    case 7:                          // DR (tenths)
++                        if (!noHeader)
++                        {
++                            if (ValL(sMin) > 0) minHdr = "+";
++                            if (ValL(sMax) > 0) maxHdr = "+";
++                        }
++                        detail = TextUtils.AutoAppend(detail,
++                            AbilityStats(rules, a, 0, lines, calcLevel, nest) + " "
++                            + (useLevel
++                                ? (nMin == nMax
++                                    ? minHdr + (nMin / 10m)
++                                    : minHdr + (nMin / 10m) + " to " + maxHdr + (nMax / 10m))
++                                : (sMin == sMax
++                                    ? minHdr + sMin
++                                    : minHdr + sMin + " to " + maxHdr + sMax)));
++                        break;
++                    case 12:                         // summon
++                        if (quickSpell)
++                            detail = TextUtils.AutoAppend(detail, "Summon");
++                        else if (nMin >= nMax)
++                        {
++                            string nm = GetMonsterName((long)nMin) ?? $"#{nMin}";
++                            detail = TextUtils.AutoAppend(detail, "Summon " + nm);
++                            lines.Add($"Summon: {nm} ({(long)nMin})");
++                        }
++                        else
++                        {
++                            string nm = GetMonsterName((long)nMin) ?? $"#{nMin}";
++                            detail = TextUtils.AutoAppend(detail, "Summons{" + nm);
++                            lines.Add($"Summon: {nm} ({(long)nMin})");
++                            for (long y = (long)nMin + 1; y <= (long)nMax; y++)
++                            {
++                                string n2 = GetMonsterName(y) ?? $"#{y}";
++                                detail += " OR " + n2;
++                                lines.Add($"Summon: {n2} ({y})");
++                            }
++                            detail += "}";
++                        }
++                        break;
++                    default:
++                        if (!noHeader && !NoHeaderAbility(a))
++                        {
++                            if (ValL(sMin) > 0) minHdr = "+";
++                            if (ValL(sMax) > 0) maxHdr = "+";
++                        }
++                        string lo = sMin, hi = sMax;
++                        if (spellBonus > 0 && getsBonus) { lo = sMinB; hi = sMaxB; }
++                        detail = TextUtils.AutoAppend(detail,
++                            AbilityStats(rules, a, 0, lines, calcLevel, nest) + " "
++                            + (lo == hi ? minHdr + lo
++                                        : minHdr + lo + " to " + maxHdr + hi));
++                        break;
++                }
++            }
++            else                                     // v != 0 (:4357)
++            {
++                switch (a)
++                {
++                    case 148:
++                        detail = TextUtils.AutoAppend(detail,
++                            AbilityStats(rules, a, v, lines, calcLevel, nest));
++                        lines.Add($"Execute: Textblock {v}  [TB {v}]");
++                        break;
++                    case 12:
++                        if (quickSpell)
++                            detail = TextUtils.AutoAppend(detail, "Summon");
++                        else
++                        {
++                            string nm = GetMonsterName(v) ?? $"#{v}";
++                            detail = TextUtils.AutoAppend(detail, "Summon " + nm);
++                            lines.Add($"Summon: {nm} ({v})");
++                        }
++                        break;
++                    case 140:
++                        detail = TextUtils.AutoAppend(detail,
++                            AbilityStats(rules, a, v, lines, calcLevel, nest));
++                        long map = TeleportMap(rec);
++                        if (map > 0)
++                            lines.Add($"Teleport: {GetRoomName(map, v)}");
++                        break;
++                    case 164: endCastPercent = $"{v}% "; break;
++                    case 151:
++                        endOne = TextUtils.AutoAppend(endOne, endCastPercent
++                            + AbilityStats(rules, a, v, lines, calcLevel, nest));
++                        break;
++                    case 23: case 51: case 52: case 80: case 97: case 98:
++                    case 100: case 108: case 109: case 110: case 111:
++                    case 112: case 113: case 119: case 138: case 144:
++                    case 178:
++                        endTwo = TextUtils.AutoAppend(endTwo,
++                            AbilityStats(rules, a, v, null, calcLevel, nest));
++                        break;
++                    default:
++                        detail = TextUtils.AutoAppend(detail,
++                            AbilityStats(rules, a, v, lines, calcLevel, nest));
++                        break;
++                }
++            }
++            if (detail.EndsWith(", ")) detail = detail[..^2];
++        }
++
++        // :4453 — a non-magical spell's damage isn't MR-reduced
++        if (nonMagical)
++            detail = System.Text.RegularExpressions.Regex.Replace(detail,
++                "Damage\\(-MR\\)", "Damage",
++                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
++
++        if (minMaxDamageOnly)
++        {
++            if (!doesDamage) return new("0:0:0", lines);
++            string lo = sMin, hi = sMax;
++            if (spellBonus > 0 && getsBonus) { lo = sMinB; hi = sMaxB; }
++            return new(lo + ":" + hi + (mm.NDur > 0 ? ":" + sDur : ""), lines);
++        }
++
++        if (detail.Length == 0 && removes.Length == 0
++            && endOne.Length == 0 && endTwo.Length == 0)
++            return new("(No EQ)", lines);
++
++        string outp = detail;
++        if (endOne.Length > 0) outp = TextUtils.AutoAppend(outp, endOne);
++
++        // :4476 energy cost -> casts per round
++        if (!isNested && rec.EnergyCost > 0 && rec.EnergyCost <= 500)
++        {
++            outp += " x" + VbRuntime.Fix(1000m / rec.EnergyCost);
++            outp += quickSpell ? "/rnd" : " times/round";
++        }
++        if (endTwo.Length > 0) outp = TextUtils.AutoAppend(outp, endTwo);
++
++        // :4487 the "(@lvl N): " prefix — only when the spell actually
++        // scales with level (or the caller forced a level calc)
++        if (!noShowLevel && level > 0
++            && (useLevel
++                || ((rec.Cap == 0 || rec.Cap > rec.ReqLevel)
++                    && ((rec.MinInc != 0 && rec.MinIncLvls > 0)
++                        || (rec.MaxInc != 0 && rec.MaxIncLvls > 0)
++                        || (rec.DurInc != 0 && rec.DurIncLvls > 0))))
++            && (rec.Cap > 0 || rec.ReqLevel > 0))
++            outp = $"(@lvl {level}): " + outp;
++
++        if (sDur != "0")
++        {
++            if (outp.Length > 0) outp += " ";
++            outp += $"for {sDur} rounds";
++        }
++        if (quickSpell) return new(outp, lines);
++
++        if (removes.Length > 0)
++        {
++            if (outp.Length > 0) outp += " -- ";
++            outp += $"RemovesSpells({removes})";
++        }
++        return new(outp, lines);
++    }
++
++    /// <summary>VB6 GetAbilityStats (modMMudFunc :2242). Returns the
++    /// per-ability display fragment; pushes jumpable refs onto
++    /// <paramref name="lines"/> when the OG would have added ListView
++    /// rows.</summary>
++    private string AbilityStats(IGameEngineRules rules, int num, long value,
++        List<string>? lines, bool calcSpellLevel, int nest)
++    {
++        string name = EnumNames.GetAbilityName(rules, num);
++        if (name.Length == 0) return "";
++
++        // :2252 — an "execute textblock" whose action is nothing but
++        // "cast N" clauses displays those spells instead of the tb ref
++        if (num == 148 && value > 0)
++        {
++            string act = GetTextblockAction(value);
++            if (act.Contains("cast ", StringComparison.OrdinalIgnoreCase))
++            {
++                var casts = new List<string>();
++                bool allCasts = true;
++                foreach (string part in act.Split(':'))
++                {
++                    if (part.StartsWith("cast ", StringComparison.Ordinal))
++                    {
++                        long sp = ValL(part[5..]);
++                        casts.Add(GetSpellEq(rules, sp, false, nest: nest + 1)
++                            .Text);
++                    }
++                    else { allCasts = false; break; }
++                }
++                if (allCasts && casts.Count > 0)
++                {
++                    string joined = string.Join(", ", casts);
++                    return joined.Contains("(click)",
++                        StringComparison.OrdinalIgnoreCase) ? "(click)" : joined;
++                }
++            }
++        }
++
++        if (value == 0) return name;
++
++        string hdr = value < 0 ? " " : " +";
++        switch (num)
++        {
++            case 7:
++                return name + hdr + (value / 10m);
++            case 42: case 122: case 160:            // learn/remove/temp spell
++            {
++                string sp = GetSpellName(value) ?? $"#{value}";
++                lines?.Add($"Spell: {sp} ({value})");
++                return name + " (" + sp + ")";
++            }
++            case 43: case 153:                       // castspell, killspell
++            case 151:                                // endcast
++                return name + " [" + (GetSpellName(value) ?? $"#{value}") + ", "
++                    + GetSpellEq(rules, value, calcSpellLevel, isNested: true,
++                        nest: nest + 1).Text + "]";
++            case 73: case 124:                       // dispel magic, negateabil
++                return name + " (" + EnumNames.GetAbilityName(rules,
++                    checked((int)value)) + ")";
++            case 59:
++                return name + " " + GetClassNameOnly(value);
++            case 146: case 12:
++                return name + " " + (GetMonsterName(value) ?? $"#{value}");
++            case 1: case 8: case 17: case 18: case 19:
++            case 140: case 141: case 148:            // no "+" header
++                return name + " " + value;
++            case 178:
++                return name;                         // value is just a message
++            case 185: case 1115:
++                return name + " " + (GetItemName(value) ?? $"#{value}");
++            default:
++                return name + hdr + value;
++        }
++    }
++
++    /// <summary>Abil 141 carries the teleport MAP for abil 140's room.</summary>
++    private static long TeleportMap(SpellRecord rec)
++    {
++        long map = 0;
++        for (int y = 0; y <= 9; y++)
++            if (rec.Abil[y] == 141) map = rec.AbilVal[y];
++        return map;
++    }
++
++    private void EmitTeleportRange(SpellRecord rec, string sMin, string sMax,
++        List<string> lines)
++    {
++        long map = TeleportMap(rec);
++        if (map <= 0) return;
++        for (long y = ValL(sMin); y <= ValL(sMax); y++)
++            lines.Add($"Teleport: {GetRoomName(map, y)}");
++    }
++
++    /// <summary>The EndCast clause when the ability value is 0 and the
++    /// min/max span names the spell(s) (:4225).</summary>
++    private string EndCastClause(IGameEngineRules rules, decimal nMin,
++        decimal nMax, bool calcLevel, int level, bool quickSpell, int nest)
++    {
++        if (quickSpell)
++            return nMax > nMin
++                ? $"End cast {nMin} to {nMax}" : $"End cast {nMin}";
++        if (nMin >= nMax)
++            return "EndCast [" + (GetSpellName((long)nMin) ?? $"#{nMin}") + ", "
++                + GetSpellEq(rules, (long)nMin, calcLevel, level,
++                    nest: nest + 1).Text + "]";
++        var sb = new System.Text.StringBuilder();
++        sb.Append("EndCast [{").Append(GetSpellName((long)nMin) ?? $"#{nMin}")
++          .Append(", ")
++          .Append(GetSpellEq(rules, (long)nMin, calcLevel, level,
++              nest: nest + 1).Text).Append('}');
++        for (long y = (long)nMin + 1; y <= (long)nMax; y++)
++            sb.Append(" OR {").Append(GetSpellName(y) ?? $"#{y}").Append(", ")
++              .Append(GetSpellEq(rules, y, calcLevel, level, nest: nest + 1)
++                  .Text).Append('}');
++        sb.Append(']');
++        return sb.ToString();
++    }
++
++    /// <summary>These render bare values with no "+" (:4334).</summary>
++    private static bool NoHeaderAbility(int a) => a is 1 or 8 or 17 or 18
++        or 19 or 140 or 141 or 148;
++
++    private static string Span(string lo, string hi) =>
++        lo == hi ? lo : lo + " to " + hi;
++
++    /// <summary>VB6 val() — leading numeric prefix, 0 when none.</summary>
++    private static long ValL(string s)
++    {
++        var m = System.Text.RegularExpressions.Regex.Match(s.Trim(),
++            @"^-?\d+");
++        return m.Success ? long.Parse(m.Value) : 0;
++    }
++}

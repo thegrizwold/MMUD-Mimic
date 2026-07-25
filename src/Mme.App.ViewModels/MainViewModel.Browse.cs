@@ -425,7 +425,24 @@ public sealed partial class MainViewModel
         }
         if (atLvl.NDur > 0) sb.AppendLine($"Duration: {atLvl.NDur} rounds");
         sb.AppendLine();
+        // S48: the real PullSpellEQ effect string (nested EndCast clauses,
+        // RemovesSpells, the energy-cost "xN times/round" tail, flags)
+        var eq = _db.GetSpellEq(Rules, number, true, (int)lvl);
+        if (eq.Text.Length > 0 && eq.Text != "(No EQ)")
+        {
+            sb.AppendLine($"Effects: {eq.Text}");
+            sb.AppendLine();
+        }
         sb.Append(_db.GetSpellAbilityText(number, Rules));
+        // jumpable refs PullSpellEQ found (teleport rooms, executed
+        // textblocks, summoned monsters, referenced spells)
+        if (eq.Lines.Count > 0)
+        {
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine("References:");
+            foreach (string l in eq.Lines.Distinct()) sb.AppendLine(l);
+        }
         // S47: where it's learned — jumpable Item/Monster/Textblock lines
         var src = _db.GetSpellSourceLines(number);
         if (src.Count > 0)

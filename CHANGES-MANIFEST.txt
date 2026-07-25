@@ -1,57 +1,52 @@
-MMUD-MIMIC — BETA 29 CHANGES-ONLY PACKAGE
+MMUD-MIMIC — BETA 30 CHANGES-ONLY PACKAGE
 =========================================
-Baseline: beta 28. 9 changed files, ALL TEXT — so unlike beta 28 the
-patch covers the entire delta (no binary files to copy by hand).
+Baseline: beta 29. 8 files, all text (7 modified + 1 NEW).
 
-VERIFIED: applying beta29.patch to a clean beta-28 checkout builds and
-passes the full suite (867/867) on its own, so the delta is complete.
+VERIFIED: applying beta30.patch to a clean beta-29 checkout builds and
+passes the full suite (883/883) on its own, so the delta is complete.
+The patch includes the new-file addition, so `git apply` creates
+SpellEqService.cs for you — nothing to copy by hand.
 
-CHANGED FILES (9, all modifications):
-  src/Mme.Data/MmeDatabase.cs                        (spell-source resolver)
-  src/Mme.App.ViewModels/MainViewModel.Browse.cs     (Learned From section)
-  src/Mme.App.ViewModels/MainViewModel.Map.cs        (nav regex + item parse)
-  src/Mme.App/MainWindow.xaml                        (spell pane dblclick)
-  src/Mme.App/MainWindow.xaml.cs                     (item jump wiring)
-  tests/Mme.Core.Tests/Wave18AttackPanelTests.cs     (+9 tests)
-  PORT_LOG.md, FEATURE_CENSUS.md, README.md          (docs)
+NEW FILE:
+  src/Mme.Data/SpellEqService.cs      (PullSpellEQ + GetAbilityStats port)
+MODIFIED:
+  src/Mme.App.ViewModels/MainViewModel.Browse.cs   (Effects + References)
+  src/Mme.App.ViewModels/MainViewModel.Map.cs      (Summon/Spell jumps)
+  tests/Mme.Core.Tests/Wave18AttackPanelTests.cs   (+16 tests)
+  docs/PARITY_LEDGER.md   (3 rows: Deferred -> Ported (session 48))
+  PORT_LOG.md, FEATURE_CENSUS.md, README.md
 
 APPLY
 -----
-A) From a clean beta-28 checkout:
-     git apply beta29.patch
-   (verified with `git apply --check`, then a real apply + full test run)
-B) Or extract this zip over a beta-28 checkout — the 9 files sit at their
-   real repo-relative paths.
+A) From a clean beta-29 checkout:  git apply beta30.patch
+B) Or extract this zip over a beta-29 checkout (real repo-relative paths).
 
-WHAT CHANGED (beta 29)
-----------------------
-1. SPELL "LEARNED FROM" (new MmeDatabase.GetSpellSourceLines):
-   - Teaching items found by scanning for ABILITY 42 (LearnSp) directly,
-     NOT from the denormalized Spells."Learned From" field. That field is
-     incomplete (stock: 217 ability-42 slots vs 205 "Item #" refs) and is
-     often not regenerated on custom realms. Cross-checked: 207/207 of
-     the existing refs agree with the ability scan, 0 mismatches.
-   - NPC refs resolved to jumpable Monster lines.
-   - Textblock-taught spells: the teaching NPC is traced
-     TBInfo."Called From" -> "Room m/r" -> Rooms."NPC" (the NPC is not in
-     the textblock itself), plus the quest command phrase, the required
-     checkitem, and the class/minlevel gate (class number -> class name).
-2. CLICK-THROUGH FIXES:
-   - The Spells detail pane had NO MouseDoubleClick handler; wired to the
-     existing DetailText_MouseDoubleClick.
-   - NavigateFromLine's monster regex was anchored "^Monster:", which the
-     "(learn) " prefix would have broken; anchor relaxed.
-   - "Item:" lines were never jumpable anywhere (logged divergence). Added
-     MainViewModel.ParseItemRefLine (pure/static) + the window routes it
-     through the existing DoEquipJump (weapons/armour/sundry routing and
-     the "clear the filter?" prompt reused). Also applies to dossier
-     lines, so monster drop "Item:" lines are now clickable.
-3. EQUIPMENT CALCULATOR — NO CODE CHANGE NEEDED; DOC FIX ONLY.
-   The "accumulation loops still pending" text was stale README copy
-   (it also still claimed 693 tests). The calculator shipped in session
-   23: EquipmentStatsService.cs, 918 lines, class/race ability scans,
-   encumbrance-first, bless, equipped+carried loop, per-slot tips; ledger
-   records "Ported (session 23) + real-db anchors". New pin
-   EquipmentCalc_AccumulatesWornItemIntoDerivedStats proves it (equipping
-   padded vest 332 raises encumbrance AND AC; tips name the item).
-   README corrected.
+WHAT CHANGED (beta 30) — PullSpellEQ, the last flagged task
+-----------------------------------------------------------
+Ported VB6 modMMudDatabase.bas :: PullSpellEQ (:4067-4527) and
+modMMudFunc.bas :: GetAbilityStats (:2242-2330). These were the last two
+entries carrying "Deferred (Phase 3 VM)" in the parity ledger.
+
+* FOUR separate accumulators (detail / EndCast / flags / removes) because
+  the OG assembles them in a fixed order: detail, EndCast, energy-cost
+  tail, flags, "(@lvl N):" prefix, "for N rounds", "-- RemovesSpells(...)".
+* Nested EndCast spells render RECURSIVELY (with the OG's 19-deep guard
+  and the abil-164 "N% " chance prefix).
+* DR in tenths; the no-header ability set; RemovesSpells trailer;
+  energy-cost Fix(1000/cost) "xN times/round" (suppressed when nested);
+  non-magical spells rewrite "Damage(-MR)" -> "Damage".
+* minMaxDamageOnly ("min:max[:dur]" / "0:0:0") and quickSpell ("(click)")
+  modes ported.
+* GetAbilityStats: the 148 special case where a textblock whose action is
+  only "cast N" clauses displays those spells' EQ instead of the tb ref.
+* The OG's ListView of clickable refs is externalized as a line list,
+  formatted to match existing jump patterns:
+    "Teleport: <room> (map/room)", "Execute: Textblock N [TB N]",
+    "Summon: <monster> (N)", "Spell: <spell> (N)"
+  NavigateFromLine's monster regex now accepts "Monster:" OR "Summon:",
+  and a new "Spell:" branch + SelectSpellInGrid gives spell->spell jumps.
+
+DIVERGENCES (logged): bQuickSpell is a parameter but not bound to a UI
+toggle (OG used it for grid tooltips); bPercentColumn dropped (it only
+picked a ListView column, meaningless once the list is externalized); the
+OG's post-ability record re-Seek is unnecessary here.

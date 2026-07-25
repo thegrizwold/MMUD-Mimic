@@ -64,17 +64,12 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
 dotnet test
 ```
 
-866 tests. Anchors were derived from independent replicas of the VB6
+883 tests. Anchors were derived from independent replicas of the VB6
 math (not from the port itself); real-database tests are guarded on the
 converted `mmud-1.11p.db` being present.
 
 ## Known remaining work
 
-- **Spell detail panel** (`PullSpellEQ` :4067–4527, ~460 lines): the
-  display-string builder over already-ported math. The spell pane shows
-  the level-scaled min/max, duration, ability text and (S47) the
-  jumpable "Learned From" sources; the remaining OG quartet/nest
-  presentation is still to come.
 - **Party damage tables** (GetPreCalculatedMonsterDamage): the lair path
   currently divides final Exp/Hr by party size, matching frmMain's lair
   behavior.
@@ -86,7 +81,12 @@ accumulation (class/race ability scans, encumbrance-first ordering,
 bless, the equipped + carried item loop, per-slot source tips), with
 real-database anchors and the divergence list recorded in
 `docs/PARITY_LEDGER.md`. `EquipmentCalc_AccumulatesWornItemIntoDerivedStats`
-pins the behaviour directly.
+pins the behaviour directly. The **spell detail panel**
+(`PullSpellEQ` :4067–4527 plus `GetAbilityStats`) shipped in session 48 —
+`Mme.Data/SpellEqService.cs` renders the full effect string (nested
+EndCast recursion, RemovesSpells, DR tenths, the energy-cost
+"xN times/round" tail, flag abilities) and returns the teleport /
+textblock / summon / spell refs as clickable lines.
 
 ## For contributors / future sessions
 

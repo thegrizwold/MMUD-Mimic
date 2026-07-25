@@ -3776,6 +3776,171 @@ public class Session46CombatDossierTests
     }
 
     // ---- S47: spell "Learned From" sources + click-through parsing ----
+    // ==== S48: PullSpellEQ + GetAbilityStats (the last two "Deferred
+    // (Phase 3 VM)" ledger entries). Anchors read off the VB6 assembly
+    // order: detail, EndONE, energy-cost tail, EndTWO, "(@lvl N):"
+    // prefix, " for N rounds", " -- RemovesSpells(...)".
+    private static Mme.Data.MmeDatabase.SpellEqResult Eq(
+        Mme.Data.MmeDatabase db, long spell, int level = 40)
+        => db.GetSpellEq(Mme.Core.Engine.StockRules.Instance, spell, true, level);
+
+    [Fact]
+    public void SpellEq_DamageSpell_RendersMrSuffixAndRange()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // magic missile: plain damage, MR-reducible
+        Assert.Contains("Damage(-MR)", Eq(db, 1).Text);
+    }
+
+    [Fact]
+    public void SpellEq_NonMagicalSpell_DropsMrFromDamageLabel()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // "fall" carries abil 144 (non-magical) -> Damage(-MR) becomes Damage
+        string t = Eq(db, 336).Text;
+        Assert.Contains("Damage", t);
+        Assert.DoesNotContain("Damage(-MR)", t);
+    }
+
+    [Fact]
+    public void SpellEq_Teleport_EmitsJumpableRoomLine()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var r = Eq(db, 336);                 // abil 141 map=2, abil 140 room=1306
+        Assert.Contains(r.Lines, l => l.StartsWith("Teleport: ")
+            && l.EndsWith("(2/1306)"));
+    }
+
+    [Fact]
+    public void SpellEq_Summon_EmitsJumpableMonsterLine()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var r = Eq(db, 90);                  // hydra head create -> monster 590
+        Assert.Contains("Summon hydra head", r.Text);
+        Assert.Contains(r.Lines, l => l == "Summon: hydra head (590)");
+    }
+
+    [Fact]
+    public void SpellEq_Textblock_EmitsJumpableTbLine()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var r = Eq(db, 2);                   // illuminate -> textblock 4012
+        Assert.Contains(r.Lines, l => l.Contains("Execute: Textblock 4012")
+            && l.Contains("[TB 4012]"));
+    }
+
+    [Fact]
+    public void SpellEq_EndCast_RecursesIntoNestedSpell()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // poison bolt endcasts "poison bite"; the nested spell's own EQ is
+        // rendered inside the brackets
+        string t = Eq(db, 35).Text;
+        Assert.Contains("EndCast [poison bite,", t);
+        Assert.Contains("Poison", t);
+        // flag abilities land AFTER the endcast clause (sEndTWO ordering)
+        Assert.True(t.IndexOf("EndCast", StringComparison.Ordinal)
+            < t.IndexOf("AffectsLivingOnly", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void SpellEq_EndCastPercent_PrefixesTheClause()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // spear: abil 164 = 20 -> "20% EndCast [...]"
+        Assert.Contains("20% EndCast [", Eq(db, 72).Text);
+    }
+
+    [Fact]
+    public void SpellEq_DrIsTenths_AndRemovesSpellsTrails()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // ethereal shield: abil 7 value 10 -> "DR +1"; four abil-122 targets
+        string t = Eq(db, 4).Text;
+        Assert.Contains("DR +1", t);
+        Assert.Contains("RemovesSpells(", t);
+        Assert.Contains("mageshield", t);
+        // the removes clause is the very last thing on the line
+        Assert.EndsWith(")", t);
+        Assert.True(t.IndexOf("for ", StringComparison.Ordinal)
+            < t.IndexOf("RemovesSpells", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData(285, "x4 times/round")]   // EnergyCost 250 -> 1000/250
+    [InlineData(207, "x3 times/round")]   // 333 -> Fix(3.003)
+    [InlineData(340, "x2 times/round")]   // 500 -> 2
+    public void SpellEq_EnergyCost_YieldsCastsPerRound(long spell, string want)
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        Assert.Contains(want, Eq(db, spell).Text);
+    }
+
+    [Fact]
+    public void SpellEq_NestedCall_OmitsEnergyCostTail()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        // VB6 gates the "times/round" tail on Not bIsNested
+        var nested = db.GetSpellEq(Mme.Core.Engine.StockRules.Instance,
+            285, true, 40, isNested: true);
+        Assert.DoesNotContain("times/round", nested.Text);
+    }
+
+    [Fact]
+    public void SpellEq_MinMaxDamageOnly_ReturnsTripleOrZeroes()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var rules = Mme.Core.Engine.StockRules.Instance;
+        // a damage spell yields "min:max" (+ ":dur" when it has one)
+        var dmg = db.GetSpellEq(rules, 1, true, 40, minMaxDamageOnly: true);
+        Assert.Matches(@"^\d+:\d+(:\d+)?$", dmg.Text);
+        // a non-damage spell yields the sentinel
+        var heal = db.GetSpellEq(rules, 4, true, 40, minMaxDamageOnly: true);
+        Assert.Equal("0:0:0", heal.Text);
+    }
+
+    [Fact]
+    public void SpellEq_NestGuard_StopsRunawayRecursion()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var deep = db.GetSpellEq(Mme.Core.Engine.StockRules.Instance,
+            1, true, 40, nest: 19);
+        Assert.Contains("infinity and beyond", deep.Text);
+    }
+
+    [Fact]
+    public void SpellEq_QuickSpell_CollapsesNestedToClick()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var q = db.GetSpellEq(Mme.Core.Engine.StockRules.Instance,
+            1, true, 40, quickSpell: true, nest: 1);
+        Assert.Equal("(click)", q.Text);
+    }
+
+    [Fact]
+    public void SpellEq_LevelClamp_UsesCapAndReqLevel()
+    {
+        if (!File.Exists(DbPath)) return;
+        using var db = Mme.Data.MmeDatabase.Open(DbPath);
+        var rec = db.GetSpellRecord(35)!;
+        // asking for level 99 clamps to the spell's Cap in the "(@lvl N)" tag
+        string t = Eq(db, 35, 99).Text;
+        if (rec.Cap > 0) Assert.Contains($"(@lvl {rec.Cap})", t);
+    }
+
     [Fact]
     public void SpellSource_ItemTaught_ListsTeachingItem()
     {
