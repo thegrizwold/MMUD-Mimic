@@ -387,7 +387,9 @@ public sealed partial class MainViewModel
         // S45 (user report): the OG's bottom pane shows WHERE the item
         // comes from — monsters, shops, rooms, chests. Double-click a
         // line to jump to it.
-        var locs = _db.GetItemLocationLines(number);
+        // 2.3.4: spells the item teaches (LearnSp) join the reference list;
+        // Options → "Show shops first" pins Shop rows to the top
+        var locs = OrderRefs(_db.GetItemLocationLines(number));
         if (locs.Count > 0)
             detail += "\r\n\r\nObtained From (double-click to jump):\r\n"
                 + string.Join("\r\n", locs);
@@ -433,7 +435,7 @@ public sealed partial class MainViewModel
             sb.AppendLine($"Effects: {eq.Text}");
             sb.AppendLine();
         }
-        sb.Append(_db.GetSpellAbilityText(number, Rules));
+        sb.Append(_db.GetSpellAbilityText(number, Rules, DisableKaiAutolearn));
         // jumpable refs PullSpellEQ found (teleport rooms, executed
         // textblocks, summoned monsters, referenced spells)
         if (eq.Lines.Count > 0)

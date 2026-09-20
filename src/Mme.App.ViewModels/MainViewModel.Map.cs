@@ -410,6 +410,7 @@ public partial class MainViewModel
     internal void ResetMapBuilder()
     {
         _mapBuilder = null;
+        ResetPathfinder();
         CurrentMap = null;
         OnChanged(nameof(CurrentMap));
     }
