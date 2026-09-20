@@ -29,6 +29,11 @@ public sealed partial class MainViewModel
             _settings.HouseQndStartSwings, _settings.HouseQndMaxBonus, _settings.HouseCritSoftCap);
         if (_settings.QuickAbilityTags is not null)
             SetQuickAbilityTags(_settings.QuickAbilityTags);
+        _uiScaleMode = NormalizeScaleMode(_settings.UiScale);
+        _mapZoomMode = string.IsNullOrWhiteSpace(_settings.MapZoom) ? "fit" : _settings.MapZoom.Trim().ToLowerInvariant();
+        SeedMapSlots(_settings.MapSlots?.Select(m => (m.Map, m.Room, m.Name ?? "")).ToList());
+        OnChanged(nameof(UiScaleMode));
+        OnChanged(nameof(MapZoomMode));
         _settingsLoaded = true;
         OnChanged(nameof(ShopsFirstInRefs));
     }
@@ -52,6 +57,10 @@ public sealed partial class MainViewModel
         _settings.HouseQndMaxBonus = hs.QndMax;
         _settings.HouseCritSoftCap = hs.CritSoft;
         _settings.QuickAbilityTags = QuickAbilityTags.Select(t => t.Ability).ToList();
+        _settings.UiScale = _uiScaleMode;
+        _settings.MapZoom = _mapZoomMode;
+        _settings.MapSlots = MapSlotsForSettings()
+            .Select(s => new UserSettings.MapSlotSetting { Map = s.Map, Room = s.Room, Name = s.Name }).ToList();
         _settings.Save(_settingsPath);
     }
 

@@ -20,6 +20,15 @@ public partial class MainWindow : Window
         _vm.LoadUserSettings(); // Beta 32: settings.json (the OG's INI Settings)
         Closing += (_, _) => _vm.SaveUserSettings();
         WireMap();
+        // Beta 33: whole-window scale + map zoom (Options → UI Scale; Rooms tab Zoom buttons)
+        SyncScaleChecks();
+        ApplyUiScale();
+        SizeChanged += (_, _) => { if (_vm.UiScaleMode == "auto") ApplyUiScale(); ApplyMapZoom(); };
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.UiScaleMode)) { SyncScaleChecks(); ApplyUiScale(); }
+            if (e.PropertyName == nameof(MainViewModel.MapZoomMode)) ApplyMapZoom();
+        };
         App.Log("window: datacontext bound");
         Loaded += (_, _) => App.Log("window: loaded (visible)");
         ContentRendered += (_, _) => App.Log("window: first frame rendered");
@@ -576,18 +585,92 @@ public partial class MainWindow : Window
         if (e.Key == Key.F3) _vm.MapFindText(findNext: true);
     }
 
-    private void MapPreset_DropDownOpened(object sender, System.EventArgs e) =>
-        CmbPresets.SelectedIndex = -1;  // so re-picking the same one re-jumps
-
-    private void MapPreset_SelectionChanged(object sender,
-        System.Windows.Controls.SelectionChangedEventArgs e)
+    // ---- Beta 33: presets as buttons ----
+    private void MapPresetButton_Click(object sender, RoutedEventArgs e)
     {
-        // keep the chosen preset visible (user report: selection didn't
-        // show). Re-selecting the same entry still re-jumps via the
-        // guard below.
-        if (CmbPresets.SelectedItem is MainViewModel.MapPreset p)
-            _vm.GoMapPreset(p);
+        if ((sender as FrameworkElement)?.DataContext is MainViewModel.MapPreset p) _vm.GoMapPreset(p);
     }
+
+    private void MapPresetButton_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.DataContext is not MainViewModel.MapPreset p) return;
+        e.Handled = true;
+        if (_vm.IsBuiltInPreset(p))
+        {
+            _vm.SetStatusPublic($"\"{p.Name}\" is a built-in preset and cannot be removed.");
+            return;
+        }
+        if (MessageBox.Show(this, $"Remove the preset \"{p.Name}\" (map {p.Map}, room {p.Room})?", "Map presets",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            _vm.DeleteMapPreset(p);
+    }
+
+    // ---- Beta 33: saved-location slots ----
+    private static int SlotIndexOf(object sender)
+    {
+        if (sender is FrameworkElement fe)
+        {
+            if (fe.DataContext is MainViewModel.MapSlotVm s) return s.Index;
+            if (fe is MenuItem mi && mi.Parent is ContextMenu cm && cm.PlacementTarget is FrameworkElement t
+                && t.DataContext is MainViewModel.MapSlotVm s2) return s2.Index;
+        }
+        return -1;
+    }
+    private void MapSlot_Click(object sender, RoutedEventArgs e) => _vm.GoMapSlot(SlotIndexOf(sender));
+    private void MapSlotSave_Click(object sender, RoutedEventArgs e) => _vm.SetMapSlot(SlotIndexOf(sender));
+    private void MapSlotClear_Click(object sender, RoutedEventArgs e) => _vm.ClearMapSlot(SlotIndexOf(sender));
+
+    // ---- Beta 33: UI scale + map zoom ----
+    private void UiScale_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { Tag: string mode }) _vm.UiScaleMode = mode;
+    }
+
+    private void SyncScaleChecks()
+    {
+        foreach (var mi in new[] { MnuScaleAuto, MnuScale100, MnuScale110, MnuScale125, MnuScale150 })
+            mi.IsChecked = (mi.Tag as string) == _vm.UiScaleMode;
+    }
+
+    /// <summary>LayoutTransform on the root: the layout is computed at
+    /// width / scale and rendered back up, so fonts, boxes and gaps all grow
+    /// together. Auto uses the WINDOW width (unscaled DIPs).</summary>
+    private void ApplyUiScale()
+    {
+        double s = _vm.UiScaleFor(ActualWidth > 0 ? ActualWidth : Width);
+        if (Math.Abs(RootScale.ScaleX - s) < 0.001) return;
+        RootScale.ScaleX = RootScale.ScaleY = s;
+        Dispatcher.BeginInvoke(ApplyMapZoom, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    private void MapZoom_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string mode }) _vm.MapZoomMode = mode;
+    }
+
+    private void MapScroller_SizeChanged(object sender, SizeChangedEventArgs e) => ApplyMapZoom();
+
+    /// <summary>Ctrl + wheel over the map: fixed zoom in 10% steps (leaves Fit).</summary>
+    private void MapScroller_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if ((Keyboard.Modifiers & ModifierKeys.Control) == 0) return;
+        e.Handled = true;
+        double cur = MapScale.ScaleX;
+        double next = Math.Clamp(Math.Round((cur + (e.Delta > 0 ? 0.1 : -0.1)) * 10) / 10.0, 0.5, 4.0);
+        _vm.MapZoomMode = next.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private void ApplyMapZoom()
+    {
+        if (MapScroller is null || TheMap is null) return;
+        // viewport in the map's (already root-scaled) coordinate space
+        double vw = MapScroller.ActualWidth - 4, vh = MapScroller.ActualHeight - 4;
+        if (vw <= 0 || vh <= 0) return;
+        double s = _vm.MapScaleFor(vw, vh, TheMap.Width, TheMap.Height);
+        if (Math.Abs(MapScale.ScaleX - s) < 0.001) return;
+        MapScale.ScaleX = MapScale.ScaleY = s;
+    }
+
 
     private void MapPresetSave_Click(object sender, RoutedEventArgs e)
     {

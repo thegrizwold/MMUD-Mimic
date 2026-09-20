@@ -188,7 +188,23 @@ Katon (11318), protection from evil (8541).
   Spells+Messages and writes nothing, full-realm build writes Spell Type +
   Mystic 11 + preview) on `tests/Fixtures/realm-nmr-sample.db` (12-spell cut).
 
-**Tests:** `Beta33Tests.cs` (45 incl. the MegaMUD golden pair, the realm-source group and the messages.md format group): rules parity grids, threshold moves,
+**Rooms tab / display (owner's 1440p screenshots):** the house-quest row in
+the Char column clipped "Smash swings" → WrapPanel. Whole-window **UI Scale**
+(Options): a `LayoutTransform` on the root DockPanel, `UiScaleMode` auto /
+1 / 1.1 / 1.25 / 1.5 in settings.json; auto = `AutoUiScaleFor(width)` =
+clamp(round(width/1900, .05), 1.0, 1.6) recomputed on SizeChanged, so fonts
+and spacing grow together (1080p 1.0, 1440p 1.35, 4K 1.6). **Map zoom**: a
+`LayoutTransform` on the MapCanvas, `MapZoomMode` fit / fixed; fit =
+`FitMapScale(viewport, 908×698)` floored to .05, clamped 0.6–3.0, recomputed
+on the ScrollViewer's SizeChanged; Zoom buttons Fit/1×/1.5×/2× and Ctrl+wheel
+(0.1 steps, 0.5–4). **Presets** are buttons (ItemsControl/WrapPanel) with a
+Save… button; right-click removes a saved preset (`DeleteMapPreset`; the OG's
+ten built-ins are protected). **Saved locations**: five `MapSlotVm` slots in a
+GroupBox docked right of the map — click jumps, right-click "Save current room
+here" (name from `GetRoomName`) / "Clear" — persisted as
+`UserSettings.MapSlots`. Tests: `Beta33RoomsTabTests` (15).
+
+**Tests:** `Beta33Tests.cs` (60 incl. the MegaMUD golden pair, the realm-source group and the messages.md format group): rules parity grids, threshold moves,
 GMUD 1000/T, ctor clamp/unwrap; art table vs v69, selector, names, speed
 ladder + multiplier + accuracy (stock and GMUD), no-skill → no attack,
 abil-68 slowed speed; smash ×3 round / cap 6 & MaxSwings; PerStealth ranks
@@ -199,7 +215,7 @@ with a196/a198 on class 15 → arts detected, VM pickers show Pu/Ki/Jk/Ps/Db;
 fallback from a missing art; UserSettings round-trip + Beta 32 defaults; VM
 defaults/apply/clamp/reset; settings seed + save; house quests clamp +
 character-file round-trip + Beta 32 file loads as stock; MA rounds filled;
-GMUD + DatVerModern + house QnD window monotone; stock Spells.md band/sign/evil anchors + golden rebuild. **Suite 986/986.**
+GMUD + DatVerModern + house QnD window monotone; stock Spells.md band/sign/evil anchors + golden rebuild. **Suite 1001/1001.**
 
 ## Session 50 — 2026-09-07 — BETA 32: MMUD Explorer v2.3.4 fork, removable EQ quick tags, code signing (Fable)
 

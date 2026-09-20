@@ -126,7 +126,11 @@
     </ContextMenu>
   </Window.Resources>
 
-  <DockPanel>
+  <DockPanel x:Name="RootPanel">
+    <!-- Beta 33: whole-window scale (Options → UI Scale); fonts and spacing grow together -->
+    <DockPanel.LayoutTransform>
+      <ScaleTransform x:Name="RootScale" ScaleX="1" ScaleY="1"/>
+    </DockPanel.LayoutTransform>
     <Menu DockPanel.Dock="Top">
       <MenuItem Header="_File">
         <MenuItem Header="_Open Database..." Click="OpenDatabase_Click"/>
@@ -182,6 +186,14 @@
                   ToolTip="Uses the party defense boxes on the Exp/Hr tab"/>
         <MenuItem Header="Clear Calculated Monster Dmg" Click="ClearCalcDmg_Click"/>
         <Separator/>
+        <MenuItem Header="_UI Scale" ToolTip="Scales every font and control together. Auto follows the window width (1080p 100%, 1440p ~135%, 4K 160%).">
+          <MenuItem x:Name="MnuScaleAuto" Header="_Auto (follow window size)" IsCheckable="True" Tag="auto" Click="UiScale_Click"/>
+          <Separator/>
+          <MenuItem x:Name="MnuScale100" Header="100%" IsCheckable="True" Tag="1" Click="UiScale_Click"/>
+          <MenuItem x:Name="MnuScale110" Header="110%" IsCheckable="True" Tag="1.1" Click="UiScale_Click"/>
+          <MenuItem x:Name="MnuScale125" Header="125%" IsCheckable="True" Tag="1.25" Click="UiScale_Click"/>
+          <MenuItem x:Name="MnuScale150" Header="150%" IsCheckable="True" Tag="1.5" Click="UiScale_Click"/>
+        </MenuItem>
         <MenuItem x:Name="MnuThemeClassic" Header="_Classic Theme"
                   IsCheckable="True" Click="ThemeClassic_Click"/>
         <MenuItem x:Name="MnuThemeDark" Header="_Dark Theme"
@@ -450,21 +462,25 @@
                   <ComboBoxItem Content="+10 bs, +2 stealth"/>
                 </ComboBox>
               </StackPanel>
-              <!-- Beta 33: wccexcmd house quests (ability-ladder rewards) -->
-              <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
-                <CheckBox Content="High Sorcery" VerticalAlignment="Center" IsChecked="{Binding QuestHighSorcery}"
+              <!-- Beta 33: wccexcmd house quests (ability-ladder rewards) — wraps in the narrow Char column -->
+              <WrapPanel MaxWidth="400" Margin="0,4,0,0">
+                <CheckBox Content="High Sorcery" VerticalAlignment="Center" Margin="0,1,10,1" IsChecked="{Binding QuestHighSorcery}"
                           ToolTip="Test of High Sorcery (Mage Test, any order): +50 max mana, +15 mana regen, +30 SpDmg%"/>
-                <TextBlock Text="PerStealth:" VerticalAlignment="Center" Margin="10,0,4,0"
-                           ToolTip="PerStealth rank (ability 186): backstab damage × (100 + level + 125·rank) / 100"/>
-                <ComboBox Width="44" ItemsSource="{Binding HousePerStealthChoices}"
-                          SelectedItem="{Binding HousePerStealthRank}"
-                          ToolTip="0 = stock; ranks 1–3 from the PerStealth quests"/>
-                <TextBlock Text="Smash swings:" VerticalAlignment="Center" Margin="10,0,4,0"
-                           ToolTip="Smash swings per round (ability 32 value): 1 = stock single smash; the Advanced Smash quests raise it"/>
-                <ComboBox Width="44" ItemsSource="{Binding HouseSmashSwingChoices}"
-                          SelectedItem="{Binding HouseSmashSwings}"
-                          ToolTip="Each smash keeps its 1.2× / 5× multipliers; energy = 1000 / swings"/>
-              </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,1,10,1">
+                  <TextBlock Text="PerStealth:" VerticalAlignment="Center" Margin="0,0,4,0"
+                             ToolTip="PerStealth rank (ability 186): backstab damage × (100 + level + 125·rank) / 100"/>
+                  <ComboBox Width="44" ItemsSource="{Binding HousePerStealthChoices}"
+                            SelectedItem="{Binding HousePerStealthRank}"
+                            ToolTip="0 = stock; ranks 1–3 from the PerStealth quests"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,1,0,1">
+                  <TextBlock Text="Smash swings:" VerticalAlignment="Center" Margin="0,0,4,0"
+                             ToolTip="Smash swings per round (ability 32 value): 1 = stock single smash; the Advanced Smash quests raise it"/>
+                  <ComboBox Width="44" ItemsSource="{Binding HouseSmashSwingChoices}"
+                            SelectedItem="{Binding HouseSmashSwings}"
+                            ToolTip="Each smash keeps its 1.2× / 5× multipliers; energy = 1000 / swings"/>
+                </StackPanel>
+              </WrapPanel>
               <WrapPanel MaxWidth="400" Margin="0,4,0,0"
                          Visibility="{Binding GreaterMud, Converter={StaticResource BoolToVis}}">
                 <CheckBox Content="Opaline" Margin="0,1,10,1" IsChecked="{Binding QuestOpaline}"/>
@@ -665,19 +681,35 @@
                     ToolTip="Find rooms by name with an exact set of exits"/>
             <Button Content="Leads Here" Width="80" Margin="10,0,0,0" Click="MapLeadsHere_Click"
                     ToolTip="Every room with an exit into the current room"/>
-            <TextBlock Text="Preset:" VerticalAlignment="Center" Margin="14,0,4,0"/>
-            <ComboBox x:Name="CmbPresets" Width="130"
-                      ItemsSource="{Binding MapPresets}" DisplayMemberPath="Name"
-                      DropDownOpened="MapPreset_DropDownOpened"
-                      SelectionChanged="MapPreset_SelectionChanged"/>
-            <Button Content="Save" Width="44" Margin="4,0,0,0" Click="MapPresetSave_Click"
-                    ToolTip="Save the current room as a named preset"/>
             <TextBlock Text="Mark:" VerticalAlignment="Center" Margin="14,0,4,0"/>
             <ComboBox Width="80" SelectedIndex="{Binding MapAlsoMark}">
               <ComboBoxItem Content="None"/>
               <ComboBoxItem Content="Shops"/>
               <ComboBoxItem Content="Spells"/>
             </ComboBox>
+            <TextBlock Text="Zoom:" VerticalAlignment="Center" Margin="14,0,4,0"/>
+            <Button Content="Fit" Width="36" Tag="fit" Click="MapZoom_Click" ToolTip="Scale the map to the space beside it (Ctrl + wheel over the map zooms by hand)"/>
+            <Button Content="1×" Width="32" Margin="2,0,0,0" Tag="1" Click="MapZoom_Click"/>
+            <Button Content="1.5×" Width="38" Margin="2,0,0,0" Tag="1.5" Click="MapZoom_Click"/>
+            <Button Content="2×" Width="32" Margin="2,0,0,0" Tag="2" Click="MapZoom_Click"/>
+          </WrapPanel>
+          <!-- Beta 33: presets are buttons, not a dropdown; right-click a saved one to remove it -->
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+            <TextBlock Text="Presets:" FontWeight="Bold" VerticalAlignment="Center" Margin="0,0,6,0"/>
+            <ItemsControl ItemsSource="{Binding MapPresets}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><WrapPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Button Content="{Binding Name}" Padding="8,1" Margin="0,1,4,1" MinWidth="0"
+                          Click="MapPresetButton_Click" MouseRightButtonUp="MapPresetButton_RightClick"
+                          ToolTip="{Binding Map, StringFormat='Map {0}'}"/>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Content="Save…" Width="52" Margin="6,1,0,1" Click="MapPresetSave_Click"
+                    ToolTip="Save the current room as a named preset"/>
           </WrapPanel>
           <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
             <CheckBox Content="Follow Map Changes" Margin="0,0,10,2" IsChecked="{Binding MapFollowMapChanges}"/>
@@ -715,10 +747,47 @@
             <TextBlock Text="Marks:" FontWeight="Bold" Margin="8,0,6,0"/>
             <TextBlock Text="◯ lair (magenta)  ∘ NPC (red)  ■ commands (green)  ★ shop/spell (cyan)"/>
           </StackPanel>
-          <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
-                        Focusable="False">
-            <local:MapCanvas x:Name="TheMap" Focusable="True"
-                             ToolTipService.ShowDuration="60000"/>
+          <!-- Beta 33: five saved-location slots beside the map -->
+          <GroupBox DockPanel.Dock="Right" Header="Saved locations" Margin="6,0,0,0" Padding="4" VerticalAlignment="Top" MinWidth="190">
+            <StackPanel>
+              <ItemsControl ItemsSource="{Binding MapSlots}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Button Content="{Binding Label}" ToolTip="{Binding Tip}" Margin="0,2" Padding="6,4"
+                            HorizontalContentAlignment="Left" MinWidth="180" MaxWidth="260"
+                            Click="MapSlot_Click" Tag="{Binding Index}">
+                      <Button.ContextMenu>
+                        <ContextMenu>
+                          <MenuItem Header="Save current room here" Click="MapSlotSave_Click"/>
+                          <MenuItem Header="Clear" Click="MapSlotClear_Click"/>
+                        </ContextMenu>
+                      </Button.ContextMenu>
+                      <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsSet}" Value="False">
+                              <Setter Property="Foreground" Value="{DynamicResource ThHelper}"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Button.Style>
+                    </Button>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" MaxWidth="260" Foreground="{DynamicResource ThHelper}"
+                         Text="Click a slot to jump. Right-click to save the room shown on the map into it, or to clear it. Kept in settings.json."/>
+            </StackPanel>
+          </GroupBox>
+          <ScrollViewer x:Name="MapScroller" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"
+                        Focusable="False" SizeChanged="MapScroller_SizeChanged"
+                        PreviewMouseWheel="MapScroller_PreviewMouseWheel">
+            <local:MapCanvas x:Name="TheMap" Focusable="True" HorizontalAlignment="Center" VerticalAlignment="Center"
+                             ToolTipService.ShowDuration="60000">
+              <local:MapCanvas.LayoutTransform>
+                <ScaleTransform x:Name="MapScale" ScaleX="1" ScaleY="1"/>
+              </local:MapCanvas.LayoutTransform>
+            </local:MapCanvas>
           </ScrollViewer>
         </DockPanel>
       </GroupBox>

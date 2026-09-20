@@ -130,6 +130,13 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
   ladder). Saved in the character file.
 - GMUD's "data version > 1.85" option now also reaches the attack engine's
   jumpkick speed table (it previously only fed the EQ calculator).
+- **Display**: Options → **UI Scale** (Auto / 100–150%) scales every font and
+  control together — Auto follows the window width (1080p 100%, 1440p ~135%,
+  4K 160%). The **Rooms** tab's map zooms to fit the space beside it (Zoom:
+  Fit / 1× / 1.5× / 2×, or Ctrl + wheel), the presets are buttons (right-click a
+  saved one to remove it) and five **Saved locations** slots sit beside the map
+  (click to jump, right-click to save the current room or clear). The Char
+  tab's house-quest row wraps instead of clipping.
 - **Create MegaMUD DATs**: Kai spells now land as Mystic (the type byte is 11,
   read from a stock MegaMUD Spells.md — the old 13 showed as "Bard-3"); "evil
   in combat", signed Min/Max and the Targets-6 checkbox follow the stock file
@@ -151,7 +158,7 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
 dotnet test
 ```
 
-986 tests. Anchors were derived from independent replicas of the VB6
+1001 tests. Anchors were derived from independent replicas of the VB6
 math (not from the port itself); real-database tests are guarded on the
 converted `mmud-1.11p.db` being present.
 

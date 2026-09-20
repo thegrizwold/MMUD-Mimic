@@ -31,6 +31,21 @@ public sealed class UserSettings
     public int HouseQndMaxBonus { get; set; }
     public int HouseCritSoftCap { get; set; } = 40;
 
+    // ---- Beta 33: display + Rooms tab ----
+    /// <summary>"auto" or a fixed factor ("1", "1.1", "1.25", "1.5") for the whole window.</summary>
+    public string UiScale { get; set; } = "auto";
+    /// <summary>"fit" or a fixed factor for the map canvas.</summary>
+    public string MapZoom { get; set; } = "fit";
+    /// <summary>Five saved-location slots beside the map (Room 0 = empty).</summary>
+    public List<MapSlotSetting>? MapSlots { get; set; }
+
+    public sealed class MapSlotSetting
+    {
+        public long Map { get; set; }
+        public long Room { get; set; }
+        public string Name { get; set; } = "";
+    }
+
     /// <summary>Beta 32: the removable "Slot lists: find by ability" quick
     /// tags on the EQ tab (ability numbers). Null = never customised →
     /// the Beta 31 defaults (SpDmg% 165 / Speed 87 / Quickness 67).</summary>

@@ -7,6 +7,7 @@ M  src/Mme.App.ViewModels/MainViewModel.Character.cs
 M  src/Mme.App.ViewModels/MainViewModel.Equipment.cs
 A  src/Mme.App.ViewModels/MainViewModel.HouseStyle.cs
 M  src/Mme.App.ViewModels/MainViewModel.Lairs.cs
+A  src/Mme.App.ViewModels/MainViewModel.MapSlots.cs
 M  src/Mme.App.ViewModels/MainViewModel.Pathing.cs
 M  src/Mme.App.ViewModels/MainViewModel.Settings.cs
 M  src/Mme.App.ViewModels/MainViewModel.cs

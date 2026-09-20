@@ -1,6 +1,6 @@
 # MMUD-Mimic Beta 33 (0.33.0) — patch notes
 
-Changes since Beta 32 (0.32.0). Test suite 938 → 986, all green.
+Changes since Beta 32 (0.32.0). Test suite 938 → 1001, all green.
 
 ## House Style Combat Settings
 
@@ -50,6 +50,21 @@ Beside Ice Sorceress / High Druid in Completed Quests:
 
 Saved in the character file; Beta 32 character files load as stock.
 
+## Display and the Rooms tab
+
+- **Options → UI Scale**: Auto / 100% / 110% / 125% / 150%. Every font and
+  control scales together; Auto follows the window width (1080p 100%, 1440p
+  about 135%, 4K 160%).
+- **Map zoom**: the Rooms map now fits the space beside it by default; Zoom
+  buttons Fit / 1× / 1.5× / 2×, or Ctrl + mouse wheel over the map.
+- **Presets are buttons** instead of a dropdown, with a Save… button;
+  right-click a preset you saved to remove it (the ten built-ins stay).
+- **Saved locations**: five slots beside the map. Click one to jump;
+  right-click to save the room shown on the map into it, or to clear it.
+  Kept in `settings.json`.
+- The Char tab's house-quest row (High Sorcery / PerStealth / Smash swings)
+  wraps instead of clipping in the narrow column.
+
 ## Create MegaMUD DATs
 
 - **Kai spells no longer land as "Bard-3".** The Spells.md type byte was read
@@ -86,6 +101,7 @@ Saved in the character file; Beta 32 character files load as stock.
 `CHANGED_FILES.txt` lists every changed or added file; `beta32-to-beta33.diff`
 is the unified diff of the text sources against Beta 32. New files:
 `src/Mme.Core/Formulas/HouseArts.cs`, `src/Mme.App.ViewModels/MainViewModel.HouseStyle.cs`,
-`src/Mme.Data/MegaMudDataBuilder.Realm.cs`, `tests/Mme.Core.Tests/Beta33Tests.cs`,
+`src/Mme.Data/MegaMudDataBuilder.Realm.cs`, `src/Mme.App.ViewModels/MainViewModel.MapSlots.cs`,
+`tests/Mme.Core.Tests/Beta33Tests.cs`,
 `tests/Mme.Core.Tests/Fixtures/` (stock Spells.md, stock messages.md, a 12-spell
 NMR-schema sample database).

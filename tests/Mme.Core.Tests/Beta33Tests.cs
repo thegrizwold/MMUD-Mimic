@@ -1048,3 +1048,126 @@ public class Beta33MessagesFileTests
         finally { Directory.Delete(dir, true); }
     }
 }
+
+/// <summary>Beta 33: Rooms-tab quality of life — saved-location slots, preset
+/// removal, whole-window UI scale and map zoom modes (the window applies the
+/// transforms; these pin the numbers it reads).</summary>
+public class Beta33RoomsTabTests
+{
+    private const string RealDb = "/home/claude/mme/current/mmud-1.11p.db";
+
+    [Theory]
+    [InlineData(1280, 1.0)]    // small window: never below 100%
+    [InlineData(1920, 1.0)]    // 1080p → 1.0 (1920/1900 rounds to 1.0)
+    [InlineData(2560, 1.35)]   // 1440p
+    [InlineData(3440, 1.6)]    // ultrawide caps at 160%
+    [InlineData(3840, 1.6)]    // 4K caps too
+    [InlineData(0, 1.0)]
+    public void AutoUiScale_FollowsWindowWidth(double width, double expect) =>
+        Assert.Equal(expect, MainViewModel.AutoUiScaleFor(width));
+
+    [Fact]
+    public void UiScaleMode_NormalisesAndResolves()
+    {
+        using var vm = new MainViewModel();
+        Assert.Equal("auto", vm.UiScaleMode);
+        Assert.Equal(1.35, vm.UiScaleFor(2560));
+        vm.UiScaleMode = "1.25";
+        Assert.Equal(1.25, vm.UiScaleFor(2560));      // fixed ignores the width
+        vm.UiScaleMode = "garbage";
+        Assert.Equal("auto", vm.UiScaleMode);
+        vm.UiScaleMode = " 1.5 ";
+        Assert.Equal("1.5", vm.UiScaleMode);
+    }
+
+    [Theory]
+    [InlineData(1400, 900, 908, 698, 1.25)]   // 1440p-ish viewport beside the slots: 1.29 → floor .05 → 1.25
+    [InlineData(700, 500, 908, 698, 0.7)]     // small window shrinks (floor 0.6)
+    [InlineData(300, 300, 908, 698, 0.6)]
+    [InlineData(5000, 5000, 908, 698, 3.0)]   // cap 3×
+    [InlineData(0, 500, 908, 698, 1.0)]
+    public void FitMapScale_ShowsTheWholeGrid(double vw, double vh, double mw, double mh, double expect) =>
+        Assert.Equal(expect, MainViewModel.FitMapScale(vw, vh, mw, mh));
+
+    [Fact]
+    public void MapZoomMode_FitOrFixed()
+    {
+        using var vm = new MainViewModel();
+        Assert.Equal("fit", vm.MapZoomMode);
+        Assert.Equal(1.25, vm.MapScaleFor(1400, 900, 908, 698));
+        vm.MapZoomMode = "2";
+        Assert.Equal(2.0, vm.MapScaleFor(1400, 900, 908, 698));
+        vm.MapZoomMode = "9";                          // Ctrl-wheel can't run away
+        Assert.Equal(4.0, vm.MapScaleFor(1400, 900, 908, 698));
+        vm.MapZoomMode = "nonsense";
+        Assert.Equal("fit", vm.MapZoomMode);
+    }
+
+    [Fact]
+    public void MapSlots_FiveSlots_SetGoClear_RoundTripSettings()
+    {
+        if (!File.Exists(RealDb)) return;
+        string path = Path.Combine(Path.GetTempPath(), $"mimic-b33-slots-{Guid.NewGuid():N}.json");
+        try
+        {
+            using var vm = new MainViewModel();
+            vm.LoadUserSettings(path);
+            vm.OpenDatabase(RealDb);
+            Assert.Equal(5, vm.MapSlots.Count);
+            Assert.All(vm.MapSlots, s => Assert.False(s.IsSet));
+            Assert.Equal("3  (empty)", vm.MapSlots[2].Label);
+
+            vm.ShowMap(1, 1);
+            vm.SetMapSlot(2);
+            Assert.True(vm.MapSlots[2].IsSet);
+            Assert.Equal(1, vm.MapSlots[2].Map);
+            Assert.Equal(1, vm.MapSlots[2].Room);
+            Assert.StartsWith("3  ", vm.MapSlots[2].Label);
+            Assert.Contains("(1/1)", vm.MapSlots[2].Name);   // GetRoomName "name (map/room)"
+
+            vm.ShowMap(1, 224);                                // Silvermere
+            vm.GoMapSlot(2);
+            Assert.Equal(1, vm.MapCurrentRoom);                // jumped back
+            vm.GoMapSlot(0);                                   // empty: no-op
+            Assert.Equal(1, vm.MapCurrentRoom);
+
+            // persisted, and restored by a fresh VM
+            using var vm2 = new MainViewModel();
+            vm2.LoadUserSettings(path);
+            Assert.True(vm2.MapSlots[2].IsSet);
+            Assert.Equal(vm.MapSlots[2].Name, vm2.MapSlots[2].Name);
+            Assert.False(vm2.MapSlots[0].IsSet);
+
+            vm.ClearMapSlot(2);
+            Assert.False(vm.MapSlots[2].IsSet);
+            using var vm3 = new MainViewModel();
+            vm3.LoadUserSettings(path);
+            Assert.False(vm3.MapSlots[2].IsSet);
+        }
+        finally { try { File.Delete(path); } catch { } }
+    }
+
+    [Fact]
+    public void Presets_BuiltInsCannotBeDeleted_SavedOnesCan()
+    {
+        if (!File.Exists(RealDb)) return;
+        using var vm = new MainViewModel();
+        vm.OpenDatabase(RealDb);
+        vm.LoadMapPresets();
+        var newhaven = vm.MapPresets.First(p => p.Name == "Newhaven");
+        Assert.True(vm.IsBuiltInPreset(newhaven));
+        int before = vm.MapPresets.Count;
+        vm.DeleteMapPreset(newhaven);
+        Assert.Equal(before, vm.MapPresets.Count);         // untouched
+
+        vm.ShowMap(1, 1);
+        string name = $"b33-test-{Guid.NewGuid():N}";
+        vm.SaveMapPreset(name);
+        var mine = vm.MapPresets.Single(p => p.Name == name);
+        Assert.False(vm.IsBuiltInPreset(mine));
+        vm.DeleteMapPreset(mine);
+        Assert.DoesNotContain(vm.MapPresets, p => p.Name == name);
+        vm.LoadMapPresets();                                // and it stays gone on disk
+        Assert.DoesNotContain(vm.MapPresets, p => p.Name == name);
+    }
+}
