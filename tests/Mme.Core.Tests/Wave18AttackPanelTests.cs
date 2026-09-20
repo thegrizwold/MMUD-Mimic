@@ -2818,8 +2818,9 @@ public class Session44WaveGTests
         Assert.Null(mob.HpDisplay);                // By-Mob: raw HP
         vm.MonsterByLair = true;
         var lair = vm.MonsterBrowse.First(m => m.Number == 1);
-        Assert.EndsWith("*", lair.HpText);         // lair-avg HP asterisk
-        Assert.EndsWith("*", lair.DamageText);
+        Assert.Null(lair.HpDisplay);               // 2.3.4: HP is the mob's own, no lair-avg "*"
+        Assert.Equal(mob.Hp, lair.Hp);
+        Assert.EndsWith("*", lair.DamageText);     // damage still lair-avg
         Assert.EndsWith("%", lair.LairExpText);    // Recovery column
         Assert.True(lair.LairTotalLairs > 0);
     }

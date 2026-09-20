@@ -4,6 +4,21 @@ CODE-ONLY = engine/VM support exists but there is NO UX for it.
 This file is the single source of truth for parity gaps. Updated from a
 full control-tree audit of frmMain.frm (Session 44). Nothing hides here.
 
+## BETA 31 (S49) — Route Finder · MegaMUD DATs · EQ find-by-ability
+- [DONE] Rooms tab "How do I get to" route bar + Tools → Route Finder
+  (Ctrl+R): restriction-aware shortest path with per-step actions; on
+  failure names the first blocking exit + reason, every blocker, and the
+  ways into an unreachable area (spell / textblock teleports, jumpable).
+  MegaMUD .mp export + live room checksum. NEW capability (OG only had a
+  manual recorder). DIVERGENCE: .mp start/end codes FFFF; STEPF flags 0000.
+- [DONE] Tools → Create MegaMUD DATs: full port of the megamud-data-builder
+  skill over the open SQLite; overlay model; verify by tree descent.
+  DIVERGENCE: Spell Type / monster Group bytes preserved from donor.
+- [DONE] EQ tab: Find Best "Spell Dmg % (a165)" / "Speed (a87)" /
+  "Quickness (a67)"; slot-list ability filter with quick toggles; worn
+  totals. a87 informational only (no engine routing).
+- [MISSING] NMR raw-schema (Exit N/Type N/Para) importer — decoded, not built.
+
 ## SIM WAVE: WIRED (S44 Wave C — beta 9)
 The Phase-1c MonsterAttackSim engine is now connected end-to-end:
 MonsterSimLoader (PopulateMonsterDataToAttackSim :5419 + item bonuses +

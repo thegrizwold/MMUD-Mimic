@@ -1,0 +1,7 @@
+<Project>
+  <!-- Release builds embed their PDBs so a single-file publish drops nothing
+       beside MMUD-Mimic.exe (the signed artifact must be exactly one file). -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+</Project>

@@ -58,13 +58,60 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
   Lairs/Exp-per-Hour tab, a character sheet panel (the global filter), and
   an attack strip covering the full mode range.
 
+## Beta 31 additions
+
+- **Route Finder** (Rooms tab bar, or Tools → Route Finder, Ctrl+R): shortest
+  walk between any two rooms honouring your character (level/class/race/
+  alignment gates, keys you carry, picklocks) and traversal options. Each step
+  says what to do (open, search, pay toll, use key, say the phrase, text
+  command). When impossible it tells you **where and why** — the first
+  blocking exit and reason — or, for unreachable areas, the spell/textblock
+  teleports that lead in. Exports MegaMUD `.mp` paths.
+- **Tools → Create MegaMUD DATs**: syncs `Spells.md` / `Monsters.md` /
+  `Items.md` (+ Races/Classes names) to the open realm using your existing
+  MegaMUD files as donors, then verifies every file by tree descent.
+- **EQ tab → Slot lists: find by ability**: filter every slot to gear carrying
+  one ability (SpDmg% / Speed / Quickness quick buttons), Find Best on
+  "Spell Dmg %", "Speed", "Quickness", and a worn-gear totals readout.
+
+## Beta 32 additions (MMUD Explorer v2.3.4 fork)
+
+- Every v2.3.4 UP/FIX that has a surface in the port: shops-first reference
+  option (Options menu, persisted), NPC greet/teleport commands in map room
+  tooltips, AC/DR header click alternating AC-desc / DR-desc, weapon **Extra**
+  column scaled by hit %, monster HP no longer lair-combined in lair mode,
+  **BS Defense** column (NMR 1.83+), Find Best rewritten to the 2.3.4
+  engine (per-item cache, SUM criteria, ring/bracelet hand-over, 2-hander vs
+  off-hand) with the new VileWard / Attributes / All Elemental / Perception
+  criteria, spell Difficulty shown for learnable Diff-0 spells, Item Manager
+  −/+ quantity buttons with the flag " xN" suffix as quantity truth, spell
+  immunity vs required level, lair-mode party no longer breaking spell
+  filtering, pasted stats reduced by item bonuses, "Copy Name" on reference
+  lines, taught spells in item references, 20-slot ability scans, ability
+  1102 UseSpell. Full mapping in `PORT_LOG.md` (Session 50).
+- **EQ tab quick filters are removable tags**: "+" pins the dropdown's
+  ability as a tag, ✕ removes it, click toggles; the worn-gear totals follow
+  the tag list. Saved in `settings.json` beside the exe, along with the
+  Options-menu toggles.
+- **Paste Party** (File → Paste Party, or the button beside the Exp/Hr Party
+  box): paste the whole party's stat + inventory outputs; per-member AC/DR/MR/
+  HP/dodge/regen/accuracy, optional per-member attack estimates, and the
+  averages written to the Exp/Hr party boxes — the OG's frmPasteChar party
+  mode with its 2.3.4 fixes. Also new: reference lists sort by % (shop rows
+  show their regen %), a **Spell Atk.** column on the Monsters grid.
+- **Signed releases**: `build/publish.ps1` and the `release` workflow publish
+  one single-file exe (framework-dependent, ~5 MB, needs the .NET 8 Desktop
+  Runtime; `-SelfContained` bundles it) and sign it with Azure Artifact Signing (see
+  `docs/SIGNING.md` for why SmartScreen flagged the betas and the owner's
+  Azure checklist).
+
 ## Test suite
 
 ```
 dotnet test
 ```
 
-883 tests. Anchors were derived from independent replicas of the VB6
+938 tests. Anchors were derived from independent replicas of the VB6
 math (not from the port itself); real-database tests are guarded on the
 converted `mmud-1.11p.db` being present.
 
@@ -107,4 +154,4 @@ dotnet test                      # all parity tests
 dotnet run --project src/Mme.ParityHarness [outDir]   # emit parity CSVs
 ```
 
-Release (Phase 5): `dotnet publish -c Release -r win-x64 --self-contained -p:PublishSingleFile=true`
+Release: `.\build\publish.ps1` (publish profile `win-x64-single` + Azure Artifact Signing — see `docs/SIGNING.md`)

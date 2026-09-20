@@ -296,10 +296,11 @@ public class AbilityNameTests
     }
 
     [Fact]
-    public void Gmud_DuplicateCase1101_FirstWins_Pin()
+    public void Gmud_Case1101_And_1102_UseSpell_V234()
     {
-        Assert.Equal("MeetsReqToHit", EnumNames.GetAbilityName(Gmud, 1101)); // "UseSpell" is dead
-        Assert.Equal("Ability 1102", EnumNames.GetAbilityName(Gmud, 1102)); // missing case
+        // VB6 2.3.4 fixed the duplicated Case 1101: 1102 is now "UseSpell"
+        Assert.Equal("MeetsReqToHit", EnumNames.GetAbilityName(Gmud, 1101));
+        Assert.Equal("UseSpell", EnumNames.GetAbilityName(Gmud, 1102));
     }
 
     [Fact]
@@ -341,7 +342,7 @@ public class AbilityNameTests
         Assert.Equal(1121, arr.Length);
         Assert.Equal(string.Empty, arr[300]);            // QuestFlag range, > 200 → ""
         Assert.Equal("MeetsReqToHit (1101)", arr[1101]);
-        Assert.Equal(string.Empty, arr[1102]);           // "Ability 1102" fallback, > 200 → ""
+        Assert.Equal("UseSpell (1102)", arr[1102]);      // 2.3.4: named
     }
 
     [Theory]

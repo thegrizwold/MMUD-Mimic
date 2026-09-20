@@ -1,5 +1,356 @@
 # PORT LOG (append-only; newest session at top)
 
+## Session 50 — 2026-09-07 — BETA 32: MMUD Explorer v2.3.4 fork, removable EQ quick tags, code signing (Fable)
+
+USER: fork the v2.3.4 (09/06/2026) OG changes into the Mimic; make the EQ
+"Slot lists: find by ability" quick buttons removable tags (SpDmg%/Speed were
+hard-wired UX clutter); find out why SmartScreen flags the beta and fix it,
+signing with a cert if needed (Azure Trusted/Artifact Signing chosen).
+Method: unified diff of the 2.3.3 source (MMUD-Explorer-master) against the
+2.3.4 drop — 9 files changed (frmMain 43 hunks, modListViewExt 12, modMain
+16, modItemParse 6, modMMudDatabase 3, modMMudFunc 4, frmMap 4, frmPasteChar
+4, vbp) — every hunk read and mapped to the port before editing. Built and
+tested on Linux (dotnet 8.0.424, EnableWindowsTargeting; the WPF project and
+the win-x64 single-file publish both compile here). Suite 904 → 924.
+
+--- v2.3.4 item-by-item -------------------------------------------------------
+UP  New toggle: show shops first when listing item references
+    → Options → "Show shops first in item references" (ShopsFirstInRefs).
+      MainViewModel.Settings.cs OrderRefs = LV_RefreshSort_ShopsFirst as a
+      STABLE partition (Shop rows first, both blocks keep the port's existing
+      raw order — the port never had the OG's %-desc sort, so none invented).
+      Applied to the three item detail panes and the Item Manager locations.
+      Persisted in the NEW settings.json (UserSettings.cs) — the port had no
+      INI "Settings" equivalent; the other Options toggles (OnlyInGame,
+      GreaterMud, DisableKaiAutolearn, AutoSave, DatVerModern) now persist too,
+      as the OG does. Load in MainWindow ctor, save on Closing + on edit.
+UP  NPC greet commands in the map's room references
+    → The port has no lvMapLoc ListView; its equivalent is the room TOOLTIP
+      (MapBuilderService.Chart.cs). MmeDatabase.GetRoomNpcCommandRefs ports
+      AddRoomNPCCommandRefs verbatim (bogus-greet filter, per-command
+      GetTextblockTeleport → LinkTo fallback, "Teleport: (NPC) cmd --> room
+      (map/room)" rows de-duped per destination, one "Greet: a, b [TB n]"
+      row). New GetTextblockTeleport / GetTextblockLinkTo. The tooltip lines
+      use the port's jumpable formats ((map/room) tail, [TB n]).
+UP  Armour AC/DR column alternates AC-desc / DR-desc on repeated clicks
+    → ArmourBrowseRow.AcSortKey/DrSortKey = SetArmourACDRSortTags
+      ((ac*100000)+dr / (dr*100000)+ac from the "ac/dr" text ×10);
+      MainWindow.ArmourGrid_Sorting on GridArmour + GridCmpArmour, always
+      descending (VB6 forceDesc), header reads "AC/DR (DR)" in DR mode.
+UP  Weapon "Extra" reflects hit % (xSwings + Extra = Avg Round)
+    → NEW Extra column on the weapons grid (the port never had one):
+      CLng(AvgExtraSwing × Swings × HitChance/100) when all > 0, else 0.
+UP  Monsters no longer show combined lair HP in lair mode
+    → MonsterLairMode: HP column/filter Tag always the monster's own HP;
+      Damage keeps the lair average + "*". Test updated.
+UP  Monsters "BS Defense" column (NMR 1.83+)
+    → ColMonBsDefense, Visibility toggled from HasBsDefenseColumn
+      (_nmrVer ≥ 1.83, published as NmrVersion). Blank when 0.
+UP  Find Best: additional stats/abilities/attributes
+    → Criteria table = the 2.3.4 menus: Armour +VileWard (1113, GMUD-only —
+      hidden from the combo on a stock db, engine bails quietly exactly like
+      the OG's ≥1000 guard); Attributes (Agi/Chm/Hea/Int/Str/Wis = 48/49/47/
+      44/46/45); Resist +"All Elemental" (3,5,66,65,147); Stats +Perception
+      (77); spelling fixes ("Encumbrance", "JumpKick"). Beta 31 Casting trio
+      kept (not VB6).
+UP  Find Best evaluates each item once, SUMS multi-part criteria the same for
+    Find Best and Next Best
+    → EquipOptimizerService rewritten to the 2.3.4 phase A–F structure:
+      per-call item cache (TypeFindBestItem), InvenFindBestItemValue SUM
+      semantics (was first-match), nVal ≤ 0 never equipped, Next Best
+      "stepping down" gate, live cur[] so later slots see earlier picks like
+      the OG's combo clicks. FindBestEx returns Picks + Found ("Nothing
+      found." now means what the OG means).
+FIX Find Best lost the best ring/bracelet on Find Next (paired-slot check
+    skipped the item already worn)
+    → InvenFindBestDupeOK port + the hand-over: when the winner is what the
+      paired (higher) slot wears, that slot receives our previous item
+      (InvenFindBestSelectItem) instead of being emptied. Pinned by
+      FindBest_PairedSlot_HandsPreviousItemOver_NotEmptied.
+FIX Find Best no longer leaves a 2-handed weapon next to a newly chosen
+    off-hand (and clears the off-hand with the weapon)
+    → phase E port: only when this pass touched the pair; b2Handed now
+      requires ItemType = 1 AND WeaponType 1/3.
+UP  Spell details show Difficulty for learnable spells with Diff 0
+    → GetSpellAbilityText: Diff < 200 And (Diff <> 0 Or bSpellCanBeLearned),
+      canBeLearned = Learnable = 1 Or (Magery = 5 And Not DisableKaiAutolearn
+      And ReqLevel > 0). NOTE the port previously printed Difficulty
+      UNCONDITIONALLY (a latent divergence) — now the OG gate.
+UP  Item Manager +/- quantity buttons sit next to each other
+    → The port had no +/- buttons at all; added "−" "+" side by side on the
+      Item Manager toolbar (ImBumpQty over the selection).
+FIX Saved Item Manager rows reflect proper QTY / adjusting QTY of pasted items
+    → ImRowVm: the flag's " xN" suffix is the qty source of truth (bare = 1);
+      a bare flag on creation is seeded from the QTY column; an explicit xN
+      drives QTY; +/- rewrite the suffix, bare word at 1. (The engine's
+      carried list — CarriedRows/IM_CARRIED — already carried typed
+      quantities, so the OG's ElseIf-QTY-column fallback removal has no
+      counterpart to remove.)
+FIX Teleport destination on the last line of a textblock could lose its map
+    → The port splits on '\n' everywhere (no Len(sData) off-by-one), so the
+      bug never existed here; GetTextblockTeleport is written with the fixed
+      semantics and TextblockTeleport_ParsesRoomAndMap_IncludingLastLine
+      pins TB 216 (last line, no trailing LF).
+FIX Spell immunity compared against the spell's required level
+    → SpellCastValues.RequiredLevel (set in CalculateSpellCast);
+      DamageOutputService: immune unless ReqLevel > SpellImmuLvl, falling
+      back to CastLevel when ReqLevel = 0. The OG's other two sites
+      (sImmuTXT "SpellImmuLVL" tag, lair red-highlight) are unported
+      surfaces — nothing to change.
+FIX Spells not filtering properly in monster lair mode with party > 1
+    → CharacterProfileService: `!bForceNoParty && PartyFilterOn && size > 1`.
+FIX Exp/hr pasting party class recognition / wrong characters (2 items)
+    → NOT APPLICABLE: the port has no Paste Party (frmPasteChar multi-
+      character paste is unported; single-character paste only). Logged as
+      the natural home if/when Paste Party is built: the 2.3.4 regex
+      "(Name|Race|Class):\s*([^\s:]+(?:\s(?![^\s:]*:)[^\s:]+)?)" and the
+      per-field slot counters synced on every "Name:".
+FIX Paste Character treated item stat bonuses as base stats
+    → PastedItemStatBonus = AccumItemStatBonus (worn items ×1; carry-active
+      pasted items — ItemType 10 or armour worn nowhere, usable by the char —
+      ×qty except +str ×1; GMUD only). Non-buffed stats: base = pasted −
+      bonus (min 1) applied directly. '*' stats: NOT applied; the confirm
+      dialog suggests pasted − bonus (the spell portion is unknowable) — the
+      OG's cancel-leaves-it-alone behaviour. DIVERGENCE (kept): the OG's
+      "boosting a stat while carried but not flagged CARRIED" warning is
+      moot here — pasted carried items become CarriedRows automatically.
+FIX "Copy Name to Clipboard" on a Sundry reference
+    → The port's reference panes are TextBoxes/ListBox with no context menu
+      at all; added RefLineCtxMenu (Copy Name / Copy Line / Go To Reference)
+      on all three detail panes + Item Manager locations. Right-click moves
+      the caret to the clicked line; RefNameOf strips the "Label: " prefix
+      and the (N)/(m/r)/[TB n]/(NN%)/"--> …" tails.
+FIX LearnSp spells appear in the item's reference list
+    → GetItemLocationLines appends "(teaches) Spell: name (N)" for every
+      abil-42 slot (jumpable via NavigateFromLine's Spell pattern).
+FIX ItemHasAbility scanned only 10 of 20 slots
+    → GetItemAbilityValue SELECT + scan 0..19; ALSO the port's own
+      GetSpellSourceLines teacher scan (0..7 → 0..19).
+UP  GetAbilityName 1102 = "UseSpell" (duplicate Case 1101 fixed upstream)
+    → EnumNames + tests un-pinned (the quirk pin is now history).
+
+--- Beta 32 user request: removable quick tags ----------------------------------
+MainViewModel.EquipFilter.cs: QuickAbilityTags (ObservableCollection of
+QuickAbilityTag {Ability, Label, IsActive}) replaces the three hard-wired
+buttons. Defaults = the Beta 31 trio until edited; "+" pins the combo's
+current ability; ✕ removes (clearing the filter if it was active); tag body
+toggles the filter; chips highlight when active. EqAbilityTotals follows the
+tag list (SpDmg%/Speed vanish from the readout when their tags are removed).
+Persisted in settings.json. Tests: QuickTags_DefaultTrio_AddRemove_….
+
+--- SmartScreen -------------------------------------------------------------
+Root cause is REPUTATION, not detection: unsigned exe ("Unknown publisher"),
+empty VERSIONINFO, brand-new hash per beta, self-extracting bundle. Code audit
+found nothing heuristic-hostile (clipboard + Process.Start on a folder only).
+Fixes: (1) full version resource in Mme.App.csproj (Version 0.32.0 / Company /
+Description / Copyright — Company is "MMUD-Mimic Project", Authors "Mirage");
+(2) Properties/PublishProfiles/win-x64-single.pubxml — single file, native
+libs bundled in-process, compression OFF, embedded PDBs (Directory.Build.props
+makes every Release build embed) so the publish output is EXACTLY one file;
+(3) Azure Artifact Signing (formerly Trusted Signing): build/publish.ps1
+(publish → `sign code trusted-signing` → Get-AuthenticodeSignature/signtool
+verify → zip) and .github/workflows/release.yml (tag v* → tests → publish →
+azure/artifact-signing-action@v2 → verify → GitHub Release). docs/SIGNING.md
+has the owner's Azure checklist (account, identity validation, Public Trust
+profile, Signer role, CI service principal + secrets). Signing itself needs
+the owner's Azure identity validation — cannot be completed from here.
+
+--- Independent parity review (subagent, read-only, VB6 diff vs C#) ------------
+Two BUGS caught and fixed before shipping: (1) the lair-mode HP ≤ FILTER must
+keep testing the lair-average HP (frmMain :25698 is unchanged in 2.3.4 — only
+the column lost it) → MonsterBrowseRow.LairAvgHp + MonsterPassesPanel;
+(2) PastedStatIsBuffed — the port still matched the pre-2.3.4 fixed "Label: *"
+spellings, missing 2-digit stats → GameTextPasteService.PastedStatIsBuffed
+skips any spaces then looks for '*'. NITs applied: nInvenLastIndex set before
+the ≥1000 bail; usability gate always applied to carry-active pasted items
+(class 0 short-circuits like ItemIsUsableByChar); no confirm prompt when the
+base stat already equals the suggestion; GetTextblockTeleport documented as a
+superset of the VB6 char walk; stale MonsterLairMode header fixed. NIT not
+taken: duplicate-named carried items (VB6 walks GetItemsByExactNameArr for the
+first carry-active match; the port resolves one number per name).
+
+--- Follow-ups (same session, user: "do the required follow ups") ------------
+PASTE PARTY (frmPasteChar ParsePasteParty :2089–2720 + CalculateAverageParty
+:2722–2951 + cmdContinue :1991–2085) — NEW in the port, read line-by-line:
+- Mme.Data/PartyPasteService.cs: the 2.3.4 regex verbatim (RegexFindV2 with the
+  compressed sub-match indexing: Hits/Mana take (2) = max, AC (1)/(2), Encum
+  (1)/(2)); per-field slot counters synced to the character index on every
+  "Name:" (2.3.4 fix); equipment scanner keyed off the "Name:" count (2.3.4
+  fix); the tabItems scan incl. the Worn 1/16 → slot 19/14 rule, weapon
+  capture, Σ Accy, max abil-22; QUIRK PIN kept verbatim: the ability Select
+  Case uses lblInvenCharStat SLOT numbers 34–42 as ability ids (real abil 34
+  Dodge lands in punch dmg and the later `Case 34: nPlusDodge` is dead) —
+  flagged upstream; calcit (class/race by name, ClassHasAbility/RaceHasAbility
+  51/34/123 via new MmeDatabase.GetClass/RaceAbilityValue with the −31337
+  sentinel, CalcDodge, CalcRestingRate ×2, EncumPCT Round+cap, CalculateAccuracy
+  with GetClassCombat externalised); the attack loop (a/aa/aaa/bs/pu/kick/jk or
+  a 4-letter spell short → GetSpellByShort with SpellIsUsable(…, True,
+  onlyInGame), CalcManaRegen with class magery, CalculateSpellCast → AvgRoundDmg;
+  physical: GetClassCombat, CalcEnergyUsed (1000 for bs/smash), QnD bonus into
+  Crit, bash/smash accuracy recompute, CalculateAttack → RoundTotal/Swings);
+  CalculateAverageParty (AC/DR/MR/Dodge/RegenHP double the attacked-last member
+  and +1 the divisor; HP/Rest/DMG/ACCY/SpDMG plain; Heals SUM; Swings with the
+  Long-accumulator rounding PIN; party size = any box filled); cmdContinue
+  apply plan (healing = Round(regen/6)+heals, or Round(regen/2)+Round(rest/3)
+  below NMR 1.83 with no heals; the one-of-two confirm; (1..8) → PartyAc/Dr/Mr/
+  Dodge, CharHp, PartyAntiMagicCount, CharHpRegen(=rest), CharAccuracy;
+  DamageOUT zeroing at ≥ 9999). (9) swings has no strip field — logged.
+- Mme.App.ViewModels/PartyPasteVm.cs + MainViewModel.PartyPaste.cs; Mme.App/
+  PartyPasteWindow.xaml(.cs): one ROW per member (the OG's six columns
+  transposed), editable cells (blank = unspecified), averages footer, AM
+  checkbox, radio-style "Atk Last", Attack code column + Calc Attacks (the OG's
+  serial InputBoxes), Continue with the OG's YesNoCancel heals prompt. Entry:
+  File → Paste Party (Exp/Hr)… and a "Paste Party…" button beside the Exp/Hr
+  Party box. Deliberate fixes documented in code: per-member nCombat reset,
+  case-insensitive attack codes, no stale-box carry-over.
+REFERENCE LISTS %-DESC SORT — ResolveLocationRefsWithPct: the "(NN%)" tail →
+  numeric tag (Round(0) above 1, Round(2) at/below, GetLocations :112); "Shop #"
+  rows (Obtained From only, :1701 passes no nAuxValue for References) tag the
+  item's GetItemShopRegenPct (new port of :1770, Currency 4-dp emulation, cap
+  99) and show it as "(NN%)"; GetItemLocationLines sorts by tag desc (stable),
+  then the shops-first partition when on. Item Manager locations sort the same.
+SPELL ATK. COLUMN — BrowseQueries.GetMonsterSpellAttackTypes = the
+  bGetSpellAttackTypes mode of GetMonsterAttackSummary + AddMonster2LV :6306:
+  AttType-2 rows → SpellAttackTypeEnum(short) of GetSpellAttackType(AttAcc);
+  MidSpells (running-nPercent quirk, > 0) and AttHitSpells that SpellDoesDamage
+  (…, True) → extras after "+"; SortLettersWithSeparator. Grid column added,
+  string-sorted (the 2.3.4 lvMonsters "Spell Atk." ldtstring fix is inherent).
+PASTED-STAT BONUS, DUPLICATE NAMES — GameTextPasteService.PasteResult.CarriedNames
+  (raw names + qty) + MmeDatabase.FindItemNumbersByExactName (every same-name
+  record, TRIM both sides, bOnlyInGame gate — the derived Gettable flag is
+  never read by the stat-bonus caller) → first carry-active + usable + stat-
+  bearing record wins (Exit For).
+Second independent review (Paste Party / refs / Spell Atk.) caught: the reduced
+TestPasteChar set dropping apostrophes (both paste services now use
+MudParse.TestPasteChar — "cat's-eye pendant" resolves again); the Swings Long
+accumulator; slots with only Race/MR still counting; GetSpellByShort ignoring
+onlyInGame; References shop rows wrongly getting a regen %; shop % display
+unrounded; Gettable filter that VB6 doesn't apply. All fixed with pins.
+
+Release flavour: the default publish profile is FRAMEWORK-DEPENDENT again
+(~5 MB, what every beta shipped as; the .NET 8 Desktop Runtime is prompted for
+on first launch). win-x64-selfcontained.pubxml / publish.ps1 -SelfContained
+give the runtime-free 148 MB exe as an opt-in.
+
+**Suite: 938/938.** Mme.App builds; default publish = one 5 MB MMUD-Mimic.exe.
+
+**Next step:** owner completes Azure Artifact Signing setup → fill secrets →
+tag v0.32.0. Remaining known gap: no strip field for party avg swings
+(txtMonsterLairFilter(9)); the OG's separate party HP/rest/accy boxes share the
+port's CharHp/CharHpRegen/CharAccuracy fields (pre-existing design).
+
+## Session 49 — 2026-09-03 — BETA 31: Route Finder, MegaMUD DAT builder, EQ ability filter (Fable)
+
+USER: "flesh out and refine MMUD Mimic to a production presentable UX polish
+and finish dangling features": (1) EQ page find-by Spell Damage (a165) and
+Speed (a87) — Find Best + filter; (2) map page "how to get to" pathing from
+room A to room B, and when impossible an error saying WHY and WHERE;
+(3) integrate the megamud-data-builder skill as Tools → Create MegaMUD DATs;
+(4) keep SQLite compatibility with the compiled (MME-style) realm MDB.
+Realm supplied: crimson_protocol.mdb (compiled) → mme-mdb2sqlite → identical
+schema to data-v1.11p.mdb (10 tables, 42,929 rows). Everything below was
+built on Linux with dotnet 8 (EnableWindowsTargeting) and tested against BOTH
+the stock 1.11p SQLite and the realm.
+
+NOTE: an earlier turn was given the RAW NMR editor mdb (mmud_neraka61.mdb),
+whose Rooms carry Exit N/Type N/Para1-4 N instead of the compiled N/S/E/W
+strings. The Mimic cannot open that shape. The NMR exit type dropdown maps
+1:1 onto MapBuilderService.ClassifyExitType's codes 0-24 and the para
+layouts were decoded (see PathfinderService header for the shapes) — an
+NMR→MME importer is FEASIBLE but was not needed once the compiled mdb arrived.
+Left as a documented follow-up, not a dangling feature.
+
+--- (1) ROUTE FINDER (new capability, NOT a VB6 port) ------------------------
+The OG frmMegaMUDPathing was a manual step RECORDER. This is an automatic
+shortest path over the exit graph. Mme.Data/PathfinderService.cs:
+- Graph: every Rooms row, 10 exits, decoded via ExtractMapRoom +
+  ClassifyExitType (exit-type codes 2 Key · 3 Item · 4 Toll · 6 Hidden ·
+  7 Door · 8 map change · 9 Trap · 10 Text · 11 Gate · 12 Remote Action ·
+  13 Class · 14 Race · 15 Level · 16 Timed · 17 Ticket · 19 Blocked ·
+  20 Align · 21 Delay · 22 Cast · 23 Ability · 24 Spell Trap).
+- Pass 1 (restricted BFS): honours Traveler (level / class / race /
+  alignment index / carried+equipped items as keys / picklocks vs the
+  "[or N picklocks]" strength) and Options (doors, hidden, action-gated,
+  text-command, traps, tolls, map changes, "ignore locks"). Each step gets a
+  Note: "open e", "pay toll 5", "search n", "use jail key (1416) n",
+  "pick lock (101 picklocks) then n", "say faith, then twist skull, then s"
+  (Remote Action phrases in the SAME room resolved by "[on the X exit]" and
+  ordered by "#N"), or the Text exit's first phrase ("go crimson").
+- Pass 2 (unrestricted) when pass 1 fails: names the FIRST blocking exit and
+  its reason, plus every other blocker on that geometric route.
+- No route at all: reverse-BFS from the goal → "N rooms can walk to the
+  destination, none reachable from your start" + WAYS IN: spells with
+  a140/a141 landing in that set, textblock "teleport <room> <map>" clauses
+  (TBInfo.Action) with their Called From, capped at 12; "[TB n]" tails are
+  jumpable. Verified on the realm: 15/351 → TB 2939 from Room 7/1283;
+  1/5001 → TB 14055 from Room 1/5902; 17/3254 → TB 4327 from Spell #1375.
+- Perf: ~1s first call (adjacency build over 32k rooms), 15-200 ms after.
+- MegaMUD export: Get_MegaMUD_RoomHash (:7606) and Get_MegaMUD_ExitsCode
+  (:7512) transcribed verbatim (Σ i×asc masked 12 bits, +1 whirling vortex
+  +2 obsidian obelisk; 5 hex digits U/D SE/SW NE/NW E/W N/S, 1/4 per pair,
+  doubled for Key/Door/Gate, Hidden/Text/Action not counted). File shape from
+  cmdMapAddMegaCodes_Click + txtMapMove_KeyPress: header lines, one
+  "CHECKSUM:FLAGS:cmd" per step; "[use <key> dir]", "[search dir]", text
+  phrase; first Item-exit item becomes the needed-item slot.
+  DIVERGENCES: start/end codes emitted as FFFF (the OG scanned rooms.md to
+  match them — not ported; user edits the two [CODE:GROUP:NAME] lines);
+  STEPF flags always 0000 (MegaRoomFlags enum not in the ported source, so
+  STEPF_CANPICK/DISARM are not set; pick hint goes in the step note instead).
+- UI: Rooms tab route bar (Map/Room/Route/Options…, live MegaMUD checksum of
+  the current room), Tools → Route Finder (Ctrl+R): from/to boxes, room-name
+  resolve, option checkboxes, tabs Steps (dbl-click = ShowMap) / Blockers-Why
+  (dbl-click "(m/r)" or "[TB n]" jumps) / Directions text / MegaMUD .mp with
+  Save. Mme.App/RouteWindow.xaml(.cs), MainViewModel.Pathing.cs.
+
+--- (2) CREATE MEGAMUD DATS (port of the megamud-data-builder skill) ----------
+Mme.Data/MegaMudDataBuilder.cs = mdlib.py (MegaMudContainer: MDB2 paged
+B+tree parse / bulk-load / tree-descent lookup / verify) + build_all.py
+(overlay model, field maps from reference/FORMAT.md, band coding
+Priest 1-3 · Mage 4-6 · Druid 7-9 · Bard 10-12 · Mystic 13-15, evil-in-combat
+and target-checkbox derivations, attitude map, is_npc). Reads the OPEN
+MME-schema SQLite — column mapping in the class header (Short→cast code,
+ReqLevel, ManaCost, MinBase/MaxBase, Dur, Diff, Targets, Magery/MageryLVL …).
+DIVERGENCES: Spell Type (abs143) and monster Group (abs69) are preserved from
+the donor because the MME schema has no such columns. messages.md copied.
+VERIFIED: files built here parse and pass tree-descent lookup in the skill's
+own mdlib.py on every key (868 spells / 1,819 monsters / 4,130 items on the
+realm); payload spot-checks match NMR raw Min/Max. No donor .md files were
+available in any upload, so end-to-end against a real MegaMUD install is the
+user's step (dialog says so, and refuses donor == output folder).
+UI: Tools → Create MegaMUD DATs: donor + output folders (OpenFolderDialog),
+donor presence check, realm alignment spread with per-row attitude combo,
+strip-unbanded toggle, Build + Verify log with honest counts and the known
+limits. Mme.App/MegaMudBuildWindow.xaml(.cs).
+
+--- (3) EQ TAB: FIND BY ABILITY -----------------------------------------------
+EquipOptimizerService: new FindBestCategory.Casting with "Spell Dmg %
+(a165)", "Speed (a87)", "Quickness (a67)" appended AFTER the VB6 table (the
+36 OG rows untouched, indexes unchanged); SumAbility / AbilityValue helpers.
+MainViewModel.EquipFilter.cs: EquipListAbility gates every slot combo to
+carriers of one ability, "name  [+N]" best-first, currently-equipped item
+kept even if it lacks the ability (never silently unequips); quick toggle
+buttons SpDmg% / Speed / Quick / ✕; EqAbilityTotals readout (Σ a165 — the
+value the engine folds into stat slot 33 — plus Σ a87 and Σ a67).
+a87 has no stat-slot routing in the OG (AbilityStatSlots → −1) and zero
+stock item precedent, so its total is INFORMATIONAL and not fed into combat.
+Realm today: 122 a165 items, 0 a87 items. Find Best runs over the filtered
+lists, so filter + "Find Best → Spell Dmg %" is a pure caster build.
+
+--- MISC ----------------------------------------------------------------------
+MainViewModel.SetStatus made public; MapBuilderService.AllRooms() added;
+ResetMapBuilder also drops the pathfinder cache; Ctrl+R binding (RelayCmd).
+
+TESTS (+21 → 904/904): Beta31Tests.cs — key/picklock/text parsing; room hash
+vs the formula on "Town Gates"; adjacent-room door step; doors-disabled
+detour has no door steps; 1/541 (only inbound = Key 1416) blocked-with-reason
+/ passes with key / passes with 101 picklocks / plan-anyway; same-room and
+missing-room summaries; .mp export shape; BandOf theory (Mystic = 13);
+container round-trip (byte-wise key order, header bytes 0x16/0x18 survive,
+verify); BuildAll over stock with synthetic donors (preserved stub, SPECIAL
+attitude left alone, shop name preserved on update / blanked on insert,
+magic missile band 4 / target 8 / evil bit); EQ criteria + slot filter +
+toggle semantics (uses a36 because stock has no a165 items).
+
 ## Session 48 — 2026-07-25 — BETA 30: PullSpellEQ + GetAbilityStats ported (the last two "Deferred (Phase 3 VM)" ledger entries)
 
 USER: "take care of the flagged issue PullSpellEQ and finish that off the
