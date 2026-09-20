@@ -10,6 +10,25 @@
     <AssemblyName>MMUD-Mimic</AssemblyName>
     <AssemblyTitle>MMUD-Mimic</AssemblyTitle>
     <Product>MMUD-Mimic</Product>
+
+    <!-- Beta 32 / SmartScreen hygiene: a bare exe with no version resource,
+         no company and no description is exactly what heuristics score as
+         "unknown software". Populate the VERSIONINFO block fully. Bump
+         Version (and the window Title) together per beta. -->
+    <Version>0.32.0</Version>
+    <AssemblyVersion>0.32.0.0</AssemblyVersion>
+    <FileVersion>0.32.0.0</FileVersion>
+    <InformationalVersion>Beta 32</InformationalVersion>
+    <Company>MMUD-Mimic Project</Company>
+    <Authors>Mirage</Authors>
+    <Description>MMUD-Mimic — a MajorMUD realm database explorer (C#/.NET port of MMUD Explorer)</Description>
+    <Copyright>Copyright © 2026 MMUD-Mimic Project</Copyright>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- Publish settings live in Properties/PublishProfiles/win-x64-single.pubxml
+         (see build/publish.ps1 and docs/SIGNING.md). -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Mme.App.ViewModels\Mme.App.ViewModels.csproj" />

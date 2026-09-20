@@ -1,0 +1,40 @@
+<Window x:Class="Mme.App.ExpCalcWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Experience Calculator" Width="540" Height="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        FontFamily="{DynamicResource ThFont}">
+  <Grid Margin="10">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="Class:" Width="44" VerticalAlignment="Center"/>
+      <ComboBox x:Name="CmbClass" Width="130" SelectionChanged="Inputs_Changed"/>
+      <TextBlock Text="Race:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <ComboBox x:Name="CmbRace" Width="130" SelectionChanged="Inputs_Changed"/>
+      <TextBlock Text="Exp Table:" Margin="12,0,4,0" VerticalAlignment="Center"/>
+      <TextBox x:Name="TxtExpTable" Width="52"/>
+    </StackPanel>
+    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,6">
+      <TextBlock Text="Start LVL:" VerticalAlignment="Center"/>
+      <TextBox x:Name="TxtStart" Width="48" Margin="4,0,0,0" Text="2"/>
+      <TextBlock Text="End LVL:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <TextBox x:Name="TxtEnd" Width="48" Text="60"/>
+      <Button Content="Calculate" Width="90" Margin="14,0,0,0" FontWeight="Bold"
+              Click="Calc_Click"/>
+    </StackPanel>
+    <DataGrid Grid.Row="2" x:Name="GridExp" AutoGenerateColumns="False"
+              IsReadOnly="True" HeadersVisibility="Column">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="LVL" Binding="{Binding Lvl}" Width="60"/>
+        <DataGridTextColumn Header="Experience" Binding="{Binding Exp}" Width="160"/>
+        <DataGridTextColumn Header="Needed" Binding="{Binding Needed}" Width="150"/>
+      </DataGrid.Columns>
+    </DataGrid>
+    <Button Grid.Row="3" Content="Close" Width="70" HorizontalAlignment="Right"
+            Margin="0,6,0,0" Click="Close_Click"/>
+  </Grid>
+</Window>

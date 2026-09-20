@@ -1,0 +1,34 @@
+<Window x:Class="Mme.App.CoinConvertWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Coin Converter" Width="430" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        FontFamily="{DynamicResource ThFont}">
+  <StackPanel Margin="10">
+    <StackPanel Orientation="Horizontal">
+      <TextBox x:Name="TxtTop" Width="120" TextChanged="Top_Changed"/>
+      <ComboBox x:Name="CmbTop" Width="96" Margin="6,0,0,0" SelectedIndex="0"
+                SelectionChanged="Top_Changed">
+        <ComboBoxItem Content="Copper"/><ComboBoxItem Content="Silver"/>
+        <ComboBoxItem Content="Gold"/><ComboBoxItem Content="Platinum"/>
+        <ComboBoxItem Content="Runic"/>
+      </ComboBox>
+      <TextBlock x:Name="LblWeightTop" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.7"/>
+    </StackPanel>
+    <TextBlock Text="=" FontSize="16" HorizontalAlignment="Center" Margin="0,2"/>
+    <StackPanel Orientation="Horizontal">
+      <TextBox x:Name="TxtBottom" Width="120" TextChanged="Bottom_Changed"/>
+      <ComboBox x:Name="CmbBottom" Width="96" Margin="6,0,0,0" SelectedIndex="2"
+                SelectionChanged="Bottom_Changed">
+        <ComboBoxItem Content="Copper"/><ComboBoxItem Content="Silver"/>
+        <ComboBoxItem Content="Gold"/><ComboBoxItem Content="Platinum"/>
+        <ComboBoxItem Content="Runic"/>
+      </ComboBox>
+      <TextBlock x:Name="LblWeightBottom" Margin="10,0,0,0" VerticalAlignment="Center" Opacity="0.7"/>
+    </StackPanel>
+    <Button x:Name="BtnCharm" Margin="0,8,0,0" Padding="6,4" HorizontalAlignment="Left"
+            Click="Charm_Click" Content="No Charm Effect" IsEnabled="False"/>
+    <Button Content="Close" Width="70" HorizontalAlignment="Right" Click="Close_Click"/>
+  </StackPanel>
+</Window>

@@ -1,0 +1,24 @@
+<Window x:Class="Mme.App.SpellBookWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Spell Book" Width="440" Height="560"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+  <Grid Margin="8">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <TextBlock Text="Check spells your character has learned. Learnable spells for the current class are listed; the learned set feeds the Spell-Learned attack mode and saves to .mmec."
+               TextWrapping="Wrap" Margin="0,0,0,6" Foreground="Gray"/>
+    <ListBox Grid.Row="1" x:Name="LstSpells" ScrollViewer.VerticalScrollBarVisibility="Auto">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <CheckBox Content="{Binding Display}" IsChecked="{Binding Learned}"/>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+    <Button Grid.Row="2" Content="Close" Width="90" Margin="0,8,0,0"
+            HorizontalAlignment="Right" IsCancel="True"/>
+  </Grid>
+</Window>

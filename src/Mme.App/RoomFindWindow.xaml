@@ -1,0 +1,34 @@
+<Window x:Class="Mme.App.RoomFindWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Find Rooms with Exits" Width="380" Height="240"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="{DynamicResource ThBg}">
+  <StackPanel Margin="10">
+    <StackPanel Orientation="Horizontal">
+      <TextBlock Text="Room name:" VerticalAlignment="Center"/>
+      <TextBox x:Name="TxtName" Width="180" Margin="6,0,0,0"/>
+      <CheckBox x:Name="ChkExact" Content="Exact match"
+                Margin="10,0,0,0" VerticalAlignment="Center"/>
+    </StackPanel>
+    <TextBlock Text="Room must have EXACTLY these exits:" Margin="0,10,0,4"
+               Foreground="{DynamicResource ThHelper}"/>
+    <WrapPanel x:Name="DirPanel">
+      <ToggleButton Content="N" Width="38" Margin="0,0,4,4" Tag="0"/>
+      <ToggleButton Content="S" Width="38" Margin="0,0,4,4" Tag="1"/>
+      <ToggleButton Content="E" Width="38" Margin="0,0,4,4" Tag="2"/>
+      <ToggleButton Content="W" Width="38" Margin="0,0,4,4" Tag="3"/>
+      <ToggleButton Content="NE" Width="38" Margin="0,0,4,4" Tag="4"/>
+      <ToggleButton Content="NW" Width="38" Margin="0,0,4,4" Tag="5"/>
+      <ToggleButton Content="SE" Width="38" Margin="0,0,4,4" Tag="6"/>
+      <ToggleButton Content="SW" Width="38" Margin="0,0,4,4" Tag="7"/>
+      <ToggleButton Content="U" Width="38" Margin="0,0,4,4" Tag="8"/>
+      <ToggleButton Content="D" Width="38" Margin="0,0,4,4" Tag="9"/>
+    </WrapPanel>
+    <StackPanel Orientation="Horizontal" Margin="0,10,0,0"
+                HorizontalAlignment="Right">
+      <Button Content="Search" Width="70" Click="Search_Click"/>
+      <Button Content="Close" Width="70" Margin="6,0,0,0" Click="Close_Click"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

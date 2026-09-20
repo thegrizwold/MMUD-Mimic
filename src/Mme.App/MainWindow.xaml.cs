@@ -17,6 +17,8 @@ public partial class MainWindow : Window
         SyncThemeChecks();
         App.Log("window: xaml parsed");
         DataContext = _vm;
+        _vm.LoadUserSettings(); // Beta 32: settings.json (the OG's INI Settings)
+        Closing += (_, _) => _vm.SaveUserSettings();
         WireMap();
         App.Log("window: datacontext bound");
         Loaded += (_, _) => App.Log("window: loaded (visible)");
@@ -155,6 +157,16 @@ public partial class MainWindow : Window
             }
             _vm.PendingModifiedStats.Clear();
         }
+    }
+
+    /// <summary>Beta 32 — frmPasteChar Paste Party (Exp/Hr party averages).</summary>
+    private void PasteParty_Click(object sender, RoutedEventArgs e)
+    {
+        var vm = _vm.CreatePartyPasteVm();
+        if (vm is null) { _vm.SetStatusPublic("Open a database first."); return; }
+        var win = new PartyPasteWindow(vm, _vm.NmrVersion) { Owner = this };
+        if (win.ShowDialog() == true)
+            _vm.SetStatusPublic($"Paste Party applied: party {_vm.PartySize}.");
     }
 
     private void SpellBook_Click(object sender, RoutedEventArgs e) =>
@@ -349,6 +361,11 @@ public partial class MainWindow : Window
     private void ImClear_Click(object sender, RoutedEventArgs e) =>
         _vm.ImClearNonFlagged();
 
+    private void ImQtyMinus_Click(object sender, RoutedEventArgs e) =>
+        _vm.ImBumpQty(GridIm.SelectedItems.OfType<MainViewModel.ImRowVm>().ToList(), -1);
+    private void ImQtyPlus_Click(object sender, RoutedEventArgs e) =>
+        _vm.ImBumpQty(GridIm.SelectedItems.OfType<MainViewModel.ImRowVm>().ToList(), +1);
+
     private void ImGrid_SelectionChanged(object sender,
         System.Windows.Controls.SelectionChangedEventArgs e) =>
         _vm.ImSelect(GridIm.SelectedItem as MainViewModel.ImRowVm);
@@ -378,8 +395,19 @@ public partial class MainWindow : Window
         _vm.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(MainViewModel.CurrentMap) or "")
+            {
                 TheMap.SetGrid(_vm.CurrentMap);
+                try { TxtMegaCode.Text = _vm.HasDatabase ? _vm.MegaMudChecksumOfCurrentRoom() : ""; }
+                catch { TxtMegaCode.Text = ""; }
+            }
+            // 2.3.4: "BS Defense" column requires a db created with NMR v1.83+
+            if (e.PropertyName is nameof(MainViewModel.HasBsDefenseColumn) or "")
+                ColMonBsDefense.Visibility = _vm.HasBsDefenseColumn
+                    ? Visibility.Visible : Visibility.Collapsed;
         };
+        InputBindings.Add(new KeyBinding(
+            new RelayCmd(() => ToolRoute_Click(this, new RoutedEventArgs())),
+            Key.R, ModifierKeys.Control));
         tabRoomsMap.Checked += (_, _) =>
         {
             if (_vm.CurrentMap is null && _vm.HasDatabase)
@@ -389,6 +417,93 @@ public partial class MainWindow : Window
         _vm.LoadMapPresets();
         TheMap.MouseLeftButtonDown += (_, _) => TheMap.Focus();
         TheMap.KeyDown += (_, e) => MapKey(e);
+    }
+
+    // ---- 2.3.4 FIX: "Copy Name to Clipboard" on reference lines ----------
+    /// <summary>Right-click moves the caret to the clicked line so the
+    /// context menu acts on that reference (the VB6 ListView had rows; the
+    /// port's detail pane is a TextBox).</summary>
+    private void DetailText_RightClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not TextBox tb || tb.SelectionLength > 0) return;
+        int idx = tb.GetCharacterIndexFromPoint(e.GetPosition(tb), true);
+        if (idx >= 0) tb.CaretIndex = idx;
+    }
+
+    /// <summary>The reference line the context menu was opened on: the
+    /// selected text, else the caret's line (TextBox) or the selected
+    /// item (ListBox).</summary>
+    private static string RefLineFor(object sender)
+    {
+        if (sender is not MenuItem mi || mi.Parent is not ContextMenu cm) return "";
+        switch (cm.PlacementTarget)
+        {
+            case TextBox tb:
+                if (tb.SelectionLength > 0) return tb.SelectedText.Trim();
+                int line = tb.GetLineIndexFromCharacterIndex(tb.CaretIndex);
+                return line >= 0 && line < tb.LineCount ? tb.GetLineText(line).Trim() : "";
+            case ListBox lb:
+                return lb.SelectedItem?.ToString()?.Trim() ?? "";
+        }
+        return "";
+    }
+
+    /// <summary>CopyLVLinetoClipboard(..., 0, True) — the NAME part of a
+    /// reference: strip the "Monster: " / "Shop (sell): " style label and
+    /// the trailing "(N)" / "(map/room)" / "[TB n]" / "(NN%)" tails.</summary>
+    internal static string RefNameOf(string line)
+    {
+        string s = line.Trim();
+        if (s.Length == 0) return "";
+        int colon = s.IndexOf(": ", StringComparison.Ordinal);
+        if (colon > 0 && colon < 24) s = s[(colon + 2)..];
+        s = System.Text.RegularExpressions.Regex.Replace(s,
+            @"(\s*\[TB \d+\]|\s*\(\d+(?:/\d+)?\)|\s*\(\d+%\)|\s*--> .*)\s*$", "").Trim();
+        // "(teaches) Spell: x" / "(learn) Item: x" prefixes
+        s = System.Text.RegularExpressions.Regex.Replace(s, @"^\([a-z]+\)\s*", "").Trim();
+        return s;
+    }
+
+    private void CtxCopyRefName_Click(object sender, RoutedEventArgs e)
+    {
+        string name = RefNameOf(RefLineFor(sender));
+        if (name.Length == 0) return;
+        try { Clipboard.SetText(name); _vm.SetStatusPublic($"Copied \"{name}\"."); }
+        catch { }
+    }
+
+    private void CtxCopyRefLine_Click(object sender, RoutedEventArgs e)
+    {
+        string line = RefLineFor(sender);
+        if (line.Length == 0) return;
+        try { Clipboard.SetText(line); _vm.SetStatusPublic("Line copied."); }
+        catch { }
+    }
+
+    private void CtxGotoRef_Click(object sender, RoutedEventArgs e)
+    {
+        string line = RefLineFor(sender);
+        if (line.Length > 0) _vm.NavigateFromLine(line);
+    }
+
+    /// <summary>2.3.4 (lvArmour_ColumnClick :31821): the AC/DR column
+    /// alternates between sorting by AC and by DR on repeated clicks, always
+    /// descending (VB6 forceDesc). First click = AC-major.</summary>
+    private void ArmourGrid_Sorting(object sender, DataGridSortingEventArgs e)
+    {
+        if (sender is not DataGrid grid) return;
+        if (e.Column.SortMemberPath is not ("AcSortKey" or "DrSortKey")) return;
+        e.Handled = true;
+        bool byDr = e.Column.SortMemberPath == "AcSortKey"
+            && e.Column.SortDirection is not null; // repeat click → flip to DR
+        string path = byDr ? "DrSortKey" : "AcSortKey";
+        foreach (var col in grid.Columns) col.SortDirection = null;
+        e.Column.SortMemberPath = path;
+        e.Column.SortDirection = System.ComponentModel.ListSortDirection.Descending;
+        e.Column.Header = byDr ? "AC/DR (DR)" : "AC/DR";
+        grid.Items.SortDescriptions.Clear();
+        grid.Items.SortDescriptions.Add(new System.ComponentModel.SortDescription(
+            path, System.ComponentModel.ListSortDirection.Descending));
     }
 
     /// <summary>S45 nav: double-click a detail line ("Monster: x (33)",
@@ -809,6 +924,67 @@ public partial class MainWindow : Window
     private void ToolNotepad_Click(object sender, RoutedEventArgs e) =>
         new NotepadWindow { Owner = this }.Show();
 
+    // ---- Beta 31: Route Finder + MegaMUD DATs + EQ ability filter ----
+    private RouteWindow? _routeWin;
+
+    private void ToolRoute_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_vm.HasDatabase) return;
+        if (_routeWin is { IsLoaded: true }) { _routeWin.Activate(); return; }
+        _routeWin = new RouteWindow(_vm) { Owner = this };
+        _routeWin.Closed += (_, _) => _routeWin = null;
+        _routeWin.Show();
+    }
+
+    private void PathGo_Click(object sender, RoutedEventArgs e) => QuickRoute();
+
+    private void PathTo_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) QuickRoute();
+    }
+
+    private void QuickRoute()
+    {
+        if (!_vm.HasDatabase) return;
+        long toMap = (long)Mme.Core.Text.VbRuntime.Val(_vm.PathToMapText);
+        long toRoom = (long)Mme.Core.Text.VbRuntime.Val(_vm.PathToRoomText);
+        if (toRoom <= 0) { _vm.SetStatus("Enter a destination room number."); return; }
+        if (toMap <= 0) toMap = _vm.MapCurrentMap;
+        if (_routeWin is { IsLoaded: true }) _routeWin.Close();
+        _routeWin = new RouteWindow(_vm, toMap, toRoom) { Owner = this };
+        _routeWin.Closed += (_, _) => _routeWin = null;
+        _routeWin.Show();
+    }
+
+    private void ToolMegaMud_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_vm.HasDatabase) return;
+        new MegaMudBuildWindow(_vm) { Owner = this }.ShowDialog();
+    }
+
+    // Beta 32: the quick buttons are removable tags (settings.json)
+    private void EqQuickTag_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is MainViewModel.QuickAbilityTag t)
+            _vm.SetEquipListAbilityQuick(t.Ability);
+    }
+    private void EqQuickTagRemove_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is MainViewModel.QuickAbilityTag t)
+            _vm.RemoveQuickAbilityTag(t);
+    }
+    private void EqQuickAdd_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.EquipListAbility <= 0)
+        {
+            _vm.SetStatusPublic("Pick an ability in the dropdown first, then + pins it as a tag.");
+            return;
+        }
+        if (_vm.AddQuickAbilityTag() is null)
+            _vm.SetStatusPublic("That ability is already a tag.");
+    }
+    private void EqQuickClear_Click(object sender, RoutedEventArgs e) => _vm.EquipListAbility = 0;
+
     private void CtxWhatCasts_Click(object sender, RoutedEventArgs e)
     {
         long num = CtxRowNum(sender);
@@ -932,4 +1108,12 @@ public partial class MainWindow : Window
         target.IsChecked = true;
         e.Handled = true;
     }
+}
+
+/// <summary>Minimal ICommand for key bindings (Beta 31).</summary>
+internal sealed class RelayCmd(Action run) : ICommand
+{
+    public event EventHandler? CanExecuteChanged { add { } remove { } }
+    public bool CanExecute(object? p) => true;
+    public void Execute(object? p) => run();
 }

@@ -1,0 +1,68 @@
+<Window x:Class="Mme.App.MegaMudBuildWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Create MegaMUD DATs — sync Spells/Monsters/Items.md to this realm" Width="820" Height="600"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        FontFamily="{DynamicResource ThFont}">
+  <Grid Margin="10">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <TextBlock TextWrapping="Wrap" Margin="0,0,0,8"
+               Text="MegaMUD ships with STOCK MajorMUD data. This overlays this realm's Spells, Monsters, Items (+ Races/Classes names) onto your existing MegaMUD .md files — the DONORS. Records carry engine bytes nobody has decoded, so nothing is built from nothing: a realm row with a donor record is updated in place, a new row clones the most common donor record shape, and donor records the realm lacks are kept as-is (your hand-authored entries survive). Back up your MegaMUD folder first."/>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+      <TextBlock Text="Donor folder (your MegaMUD\Default):" VerticalAlignment="Center" Margin="0,0,6,0"/>
+      <TextBox Grid.Column="1" x:Name="TxtDonor" Margin="0,2" TextChanged="Paths_TextChanged"/>
+      <Button Grid.Column="2" Content="Browse…" Width="80" Margin="6,2,0,2" Click="BrowseDonor_Click"/>
+      <TextBlock Grid.Row="1" Text="Output folder (NOT the live MegaMUD folder):" VerticalAlignment="Center" Margin="0,0,6,0"/>
+      <TextBox Grid.Row="1" Grid.Column="1" x:Name="TxtOut" Margin="0,2" TextChanged="Paths_TextChanged"/>
+      <Button Grid.Row="1" Grid.Column="2" Content="Browse…" Width="80" Margin="6,2,0,2" Click="BrowseOut_Click"/>
+    </Grid>
+
+    <TextBlock Grid.Row="2" x:Name="LblDonors" Margin="0,4,0,0" Foreground="{DynamicResource ThHelper}" TextWrapping="Wrap"/>
+
+    <GroupBox Grid.Row="3" Header="Monster attitude map (realm Alignment → MegaMUD) — confirm before the first build" Margin="0,8,0,4">
+      <StackPanel>
+        <ItemsControl x:Name="LstAlign">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate>
+              <StackPanel Orientation="Horizontal" Margin="0,1">
+                <TextBlock Width="150" Text="{Binding Label}"/>
+                <TextBlock Width="60" Text="{Binding Count}"/>
+                <ComboBox Width="150" SelectedValue="{Binding Rule, Mode=TwoWay}" SelectedValuePath="Tag">
+                  <ComboBoxItem Content="Enemy (attack on sight)" Tag="E"/>
+                  <ComboBoxItem Content="Friend (auto-flips if attacked)" Tag="F"/>
+                  <ComboBoxItem Content="NPC rule (Friend if god-stat, else Neutral)" Tag="N"/>
+                </ComboBox>
+                <TextBlock Margin="10,0,0,0" Foreground="{DynamicResource ThHelper}" Text="{Binding Example}"/>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+        <CheckBox x:Name="ChkStrip" IsChecked="True" Margin="0,6,0,0"
+                  Content="Strip unbanded spells (weapon procs / monster spells that would flood MegaMUD's 'Any' list)"/>
+      </StackPanel>
+    </GroupBox>
+
+    <TextBox Grid.Row="4" x:Name="TxtLog" IsReadOnly="True" AcceptsReturn="True" FontFamily="Consolas"
+             VerticalScrollBarVisibility="Auto" TextWrapping="Wrap"/>
+
+    <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+      <Button x:Name="BtnBuild" Content="Build + Verify" Width="120" FontWeight="Bold" Click="Build_Click" IsEnabled="False"/>
+      <Button Content="Open output folder" Width="130" Margin="6,0,0,0" Click="OpenOut_Click"/>
+      <Button Content="Close" Width="70" Margin="6,0,0,0" IsCancel="True"/>
+    </StackPanel>
+  </Grid>
+</Window>

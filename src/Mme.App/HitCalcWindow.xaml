@@ -1,0 +1,57 @@
+<Window x:Class="Mme.App.HitCalcWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Hit Calculator" Width="470" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        FontFamily="{DynamicResource ThFont}">
+  <StackPanel Margin="10">
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="Type:" Width="66" VerticalAlignment="Center"/>
+      <ComboBox Width="100" SelectedIndex="{Binding TypeIndex}">
+        <ComboBoxItem Content="Normal"/><ComboBoxItem Content="Backstab"/>
+      </ComboBox>
+      <TextBlock Text="Attacker:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <ComboBox Width="92" SelectedIndex="{Binding Attacker}">
+        <ComboBoxItem Content="Character"/><ComboBoxItem Content="Monster"/>
+        <ComboBoxItem Content="Manual"/>
+      </ComboBox>
+      <TextBlock Text="Defender:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <ComboBox Width="92" SelectedIndex="{Binding Defender}">
+        <ComboBoxItem Content="Character"/><ComboBoxItem Content="Monster"/>
+        <ComboBoxItem Content="Player"/><ComboBoxItem Content="Manual"/>
+      </ComboBox>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="Monster:" Width="66" VerticalAlignment="Center"/>
+      <ComboBox Width="260" ItemsSource="{Binding Monsters}" DisplayMemberPath="Name"
+                SelectedValuePath="Number" SelectedValue="{Binding MonsterNumber}"
+                MaxDropDownHeight="380"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="Accuracy:" Width="66" VerticalAlignment="Center"/>
+      <TextBox Width="52" Text="{Binding Accuracy, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="AC:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="52" Text="{Binding Ac, UpdateSourceTrigger=PropertyChanged}"/>
+      <TextBlock Text="Dodge:" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="52" Text="{Binding Dodge, UpdateSourceTrigger=PropertyChanged}"/>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+      <TextBlock Text="Prot.Evil:" Width="66" VerticalAlignment="Center"/>
+      <TextBox Width="52" Text="{Binding ProtEvil, UpdateSourceTrigger=PropertyChanged}"
+               IsEnabled="{Binding ProtEvilEnabled}"/>
+      <TextBlock Text="{Binding PerceptionLabel}" Margin="10,0,4,0" VerticalAlignment="Center"/>
+      <TextBox Width="52" Text="{Binding Perception, UpdateSourceTrigger=PropertyChanged}"
+               IsEnabled="{Binding PerceptionEnabled}"/>
+      <CheckBox Content="Shadow" Margin="12,0,0,0" VerticalAlignment="Center"
+                IsChecked="{Binding Shadow}"/>
+      <CheckBox Content="See Hidden" Margin="8,0,0,0" VerticalAlignment="Center"
+                IsChecked="{Binding SeeHidden}"/>
+    </StackPanel>
+    <TextBlock Text="{Binding SeedNote}" Opacity="0.7"/>
+    <Separator Margin="0,4"/>
+    <TextBlock Text="{Binding ResultText}" FontSize="15" FontWeight="Bold"/>
+    <TextBlock Text="{Binding CapsText}" Opacity="0.8" Margin="0,4,0,0"/>
+    <Button Content="Close" Width="70" HorizontalAlignment="Right" Margin="0,8,0,0" Click="Close_Click"/>
+  </StackPanel>
+</Window>

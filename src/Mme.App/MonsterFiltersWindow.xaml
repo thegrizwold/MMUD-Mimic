@@ -1,0 +1,114 @@
+<Window x:Class="Mme.App.MonsterFiltersWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Monster Filters — More Filters" Width="640" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
+        FontFamily="{DynamicResource ThFont}">
+  <StackPanel Margin="10">
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+      <TextBlock Text="Extra filters:" FontWeight="Bold" VerticalAlignment="Center"/>
+      <RadioButton x:Name="RbDisabled" Content="Disabled" Margin="10,0,0,0" VerticalAlignment="Center"/>
+      <RadioButton x:Name="RbEnabled" Content="Enabled" Margin="8,0,0,0" VerticalAlignment="Center"/>
+      <CheckBox x:Name="ChkShowAll" Content="Show All (grey non-matches instead of hiding)"
+                Margin="18,0,0,0" VerticalAlignment="Center"/>
+    </StackPanel>
+
+    <GroupBox Header="Drops Cash" Margin="0,0,0,5">
+      <StackPanel Orientation="Horizontal">
+        <RadioButton x:Name="RbCash0" Content="Any" Margin="0,0,10,0"/>
+        <RadioButton x:Name="RbCash1" Content="Drops Cash" Margin="0,0,10,0"/>
+        <RadioButton x:Name="RbCash2" Content="Silver+" Margin="0,0,10,0"/>
+        <RadioButton x:Name="RbCash3" Content="Gold+" Margin="0,0,10,0"/>
+        <RadioButton x:Name="RbCash4" Content="Platinum+" Margin="0,0,10,0"/>
+        <RadioButton x:Name="RbCash5" Content="Runic"/>
+      </StackPanel>
+    </GroupBox>
+
+    <GroupBox Header="Defenses / Stats (&lt;= — 9999 = off)" Margin="0,0,0,5">
+      <StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <TextBlock Text="AC:" Width="34" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtAc" Width="52"/>
+          <TextBlock Text="DR:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtDr" Width="52"/>
+          <TextBlock Text="MR:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtMr" Width="52"/>
+          <TextBlock Text="BS Def:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtBsDef" Width="52"/>
+          <TextBlock Text="Dodge:" Margin="8,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtDodge" Width="52"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <TextBlock Text="Game Limit &lt;=:" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtGameLimit" Width="52" Margin="3,0,0,0"/>
+          <TextBlock Text="Avg Lair Exp &gt;=:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtLairExp" Width="80"/>
+          <TextBlock Text="Atk Acc Maj &lt;=:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtAccMaj" Width="52"/>
+          <TextBlock Text="Max &lt;=:" Margin="6,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtAccMax" Width="52"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <TextBlock Text="# Lairs &gt;=:" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtNumLairs" Width="52" Margin="3,0,0,0"/>
+          <TextBlock Text="# Mobs &lt;=:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtMobsLte" Width="52"/>
+          <TextBlock Text="# Mobs &gt;=:" Margin="10,0,3,0" VerticalAlignment="Center"/>
+          <TextBox x:Name="TxtMobsGte" Width="52"/>
+        </StackPanel>
+      </StackPanel>
+    </GroupBox>
+
+    <GroupBox Header="Requirements" Margin="0,0,0,5">
+      <StackPanel Orientation="Horizontal">
+        <CheckBox x:Name="ChkUndead" Content="Undead" Margin="0,0,12,0"/>
+        <CheckBox x:Name="ChkNhEvil" Content="Non-Hostile (vs Evil)" Margin="0,0,12,0"/>
+        <CheckBox x:Name="ChkNhNg" Content="Non-Hostile (vs Neut/Good)" Margin="0,0,12,0"/>
+      </StackPanel>
+    </GroupBox>
+
+    <GroupBox Header="Attack Restrictions" Margin="0,0,0,5">
+      <StackPanel Orientation="Horizontal">
+        <CheckBox x:Name="ChkNoPoison" Content="No Poison" Margin="0,0,12,0"/>
+        <CheckBox x:Name="ChkNoConfusion" Content="No Confusion" Margin="0,0,12,0"/>
+        <CheckBox x:Name="ChkNoFear" Content="No Fear"/>
+      </StackPanel>
+    </GroupBox>
+
+    <GroupBox Header="Abilities (value &lt;= / &gt;=; absent passes &lt;= with a positive value)" Margin="0,0,0,6">
+      <StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <ComboBox x:Name="CmbAbil0" Width="220" DisplayMemberPath="Name" SelectedValuePath="Num"/>
+          <ComboBox x:Name="CmbOp0" Width="56" Margin="6,0,0,0">
+            <ComboBoxItem Content="&lt;="/><ComboBoxItem Content="&gt;="/>
+          </ComboBox>
+          <TextBox x:Name="TxtVal0" Width="56" Margin="6,0,0,0"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <ComboBox x:Name="CmbAbil1" Width="220" DisplayMemberPath="Name" SelectedValuePath="Num"/>
+          <ComboBox x:Name="CmbOp1" Width="56" Margin="6,0,0,0">
+            <ComboBoxItem Content="&lt;="/><ComboBoxItem Content="&gt;="/>
+          </ComboBox>
+          <TextBox x:Name="TxtVal1" Width="56" Margin="6,0,0,0"/>
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="0,2">
+          <ComboBox x:Name="CmbAbil2" Width="220" DisplayMemberPath="Name" SelectedValuePath="Num"/>
+          <ComboBox x:Name="CmbOp2" Width="56" Margin="6,0,0,0">
+            <ComboBoxItem Content="&lt;="/><ComboBoxItem Content="&gt;="/>
+          </ComboBox>
+          <TextBox x:Name="TxtVal2" Width="56" Margin="6,0,0,0"/>
+        </StackPanel>
+      </StackPanel>
+    </GroupBox>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Reset" Width="70" Click="Reset_Click"/>
+      <Button Content="Cancel" Width="70" Margin="6,0,0,0" Click="Cancel_Click"/>
+      <Button Content="Save + Close" Width="94" Margin="6,0,0,0" Click="SaveClose_Click"/>
+      <Button Content="Save + Apply" Width="94" Margin="6,0,0,0" Click="SaveApply_Click"/>
+      <Button Content="Save + Apply + Close" Width="140" Margin="6,0,0,0"
+              FontWeight="Bold" Click="SaveApplyClose_Click"/>
+    </StackPanel>
+  </StackPanel>
+</Window>

@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Mme.App"
         xmlns:data="clr-namespace:Mme.Data;assembly=Mme.Data"
-        Title="MMUD-Mimic" Icon="app-icon.png" Width="1280" Height="760"
+        Title="MMUD-Mimic — Beta 32" Icon="app-icon.png" Width="1280" Height="760"
         PreviewKeyDown="Window_TabHotkeys"
         FontFamily="{DynamicResource ThFont}" FontSize="{DynamicResource ThFontSize}"
         Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
@@ -73,6 +73,16 @@
       <MenuItem Header="Calc Backstab" Click="CtxCalcBs_Click"/>
     </ContextMenu>
 
+    <!-- 2.3.4 FIX: "Copy Name to Clipboard" works on reference lines in
+         every detail pane (incl. the Sundry tab) and the Item Manager
+         locations list. -->
+    <ContextMenu x:Key="RefLineCtxMenu">
+      <MenuItem Header="Copy Name to Clipboard" Click="CtxCopyRefName_Click"/>
+      <MenuItem Header="Copy Line to Clipboard" Click="CtxCopyRefLine_Click"/>
+      <Separator/>
+      <MenuItem Header="Go To Reference" Click="CtxGotoRef_Click"/>
+    </ContextMenu>
+
     <!-- VB6 mnuSpellsPopUp ("What casts this?" / counters: census). -->
     <ContextMenu x:Key="SpellsCtxMenu">
       <MenuItem Header="What Casts This?" Click="CtxWhatCasts_Click"/>
@@ -123,6 +133,8 @@
         <Separator/>
         <MenuItem Header="_Load Character..." Click="LoadCharacter_Click"/>
         <MenuItem Header="_Paste Character..." Click="PasteCharacter_Click"/>
+        <MenuItem Header="Paste Part_y (Exp/Hr)..." Click="PasteParty_Click" IsEnabled="{Binding HasDatabase}"
+                  ToolTip="Paste up to six characters' stat + inventory outputs; averages feed the Exp/Hr party boxes"/>
         <MenuItem Header="_Save Character..." Click="SaveCharacter_Click"/>
         <MenuItem Header="Spell _Book..." Click="SpellBook_Click"/>
         <Separator/>
@@ -137,6 +149,11 @@
         <MenuItem Header="_Experience Calculator..." Click="ToolExpCalc_Click"/>
         <MenuItem Header="_Coin Converter..." Click="ToolCoinConvert_Click"/>
         <MenuItem Header="_Notepad..." Click="ToolNotepad_Click"/>
+        <Separator/>
+        <MenuItem Header="_Route Finder (How do I get to…)..." Click="ToolRoute_Click"
+                  IsEnabled="{Binding HasDatabase}" InputGestureText="Ctrl+R"/>
+        <MenuItem Header="Create _MegaMUD DATs (Spells/Monsters/Items.md)..." Click="ToolMegaMud_Click"
+                  IsEnabled="{Binding HasDatabase}"/>
       </MenuItem>
       <MenuItem Header="_Options">
         <MenuItem Header="Only show items that are _In Game"
@@ -149,6 +166,9 @@
                   IsChecked="{Binding GreaterMud}"/>
         <MenuItem Header="Disable _Kai auto-learn" IsCheckable="True"
                   IsChecked="{Binding DisableKaiAutolearn}"/>
+        <MenuItem Header="Show _shops first in item references" IsCheckable="True"
+                  IsChecked="{Binding ShopsFirstInRefs}"
+                  ToolTip="Item detail / Item Manager reference lists pin Shop rows above everything else (v2.3.4)"/>
         <Separator/>
         <MenuItem Header="_Clear Learned Spells" Click="ClearLearned_Click"/>
         <Separator/>
@@ -559,6 +579,11 @@
             <Button Content="Clear Non-Flagged" Width="118" Margin="6,0,0,0"
                     Click="ImClear_Click"
                     ToolTip="Rows with a Flag (e.g. CARRIED, STASH) survive"/>
+            <!-- 2.3.4: +/- quantity buttons sit next to each other -->
+            <Button Content="−" Width="24" Margin="12,0,0,0" Padding="0" Click="ImQtyMinus_Click"
+                    ToolTip="Decrease QTY of the selected rows (min 1)"/>
+            <Button Content="+" Width="24" Margin="2,0,0,0" Padding="0" Click="ImQtyPlus_Click"
+                    ToolTip="Increase QTY of the selected rows"/>
             <TextBlock Text="{Binding ImSummary}" VerticalAlignment="Center"
                        Margin="16,0,0,0" Foreground="{DynamicResource ThHelper}"/>
           </StackPanel>
@@ -592,7 +617,8 @@
             <TextBox IsReadOnly="True" Text="{Binding ImDetailText, Mode=OneWay}"
                      FontFamily="Consolas" FontSize="12" TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto" Margin="0,0,6,0"/>
-            <ListBox Grid.Column="1" ItemsSource="{Binding ImLocations}"/>
+            <ListBox Grid.Column="1" ItemsSource="{Binding ImLocations}" x:Name="ListImLocations"
+                     ContextMenu="{StaticResource RefLineCtxMenu}"/>
           </Grid>
         </Grid>
       </GroupBox>
@@ -645,6 +671,21 @@
             <CheckBox Content="Allow Dupes" Margin="0,0,10,2" IsChecked="{Binding MapAllowDupes}"/>
             <CheckBox Content="Allow Overwrite" Margin="0,0,10,2" IsChecked="{Binding MapAllowOverwrite}"/>
             <CheckBox Content="Not Restricted" Margin="0,0,10,2" IsChecked="{Binding MapNotRestricted}"/>
+          </WrapPanel>
+          <WrapPanel DockPanel.Dock="Top" Margin="0,0,0,4">
+            <TextBlock Text="How do I get to" FontWeight="Bold" VerticalAlignment="Center"/>
+            <TextBlock Text="Map:" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            <TextBox Width="44" Margin="4,0,0,0" Text="{Binding PathToMapText, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="PathTo_KeyDown" ToolTip="Destination map (blank = current map)"/>
+            <TextBlock Text="Room:" VerticalAlignment="Center" Margin="6,0,0,0"/>
+            <TextBox Width="58" Margin="4,0,0,0" Text="{Binding PathToRoomText, UpdateSourceTrigger=PropertyChanged}"
+                     KeyDown="PathTo_KeyDown" ToolTip="Destination room — Enter to route from the room shown on the map"/>
+            <Button Content="Route" Width="56" Margin="4,0,0,0" Click="PathGo_Click"
+                    ToolTip="Shortest walk from the current room, honouring the character and the options (Ctrl+R opens the full window)"/>
+            <Button Content="Options…" Width="70" Margin="4,0,0,0" Click="ToolRoute_Click"/>
+            <TextBlock Text="MegaMUD code:" VerticalAlignment="Center" Margin="14,0,4,0"
+                       Foreground="{DynamicResource ThHelper}"/>
+            <TextBox Width="78" IsReadOnly="True" x:Name="TxtMegaCode" ToolTip="MegaMUD 8-char room checksum (name hash + exits code) of the current room"/>
           </WrapPanel>
           <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,4,0,0">
             <TextBlock Text="Blocks:" FontWeight="Bold" Margin="0,0,6,0"/>
@@ -715,14 +756,16 @@
               <DataGrid ItemsSource="{Binding CompareArmour}" AutoGenerateColumns="False"
                         IsReadOnly="True" GridLinesVisibility="Horizontal"
                         HeadersVisibility="Column" FontSize="12"
-                        MouseDoubleClick="CmpArmour_DoubleClick" x:Name="GridCmpArmour">
+                        MouseDoubleClick="CmpArmour_DoubleClick" x:Name="GridCmpArmour"
+                        Sorting="ArmourGrid_Sorting">
                 <DataGrid.Columns>
                   <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="160"/>
                   <DataGridTextColumn Header="Worn" Binding="{Binding Worn}" Width="80"/>
                   <DataGridTextColumn Header="Type" Binding="{Binding ArmrType}" Width="70"/>
                   <DataGridTextColumn Header="Lvl" Binding="{Binding Lvl}" Width="42"/>
                   <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" Width="46"/>
-                  <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="60"/>
+                  <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="60"
+                                      SortMemberPath="AcSortKey"/>
                   <DataGridTextColumn Header="Acc" Binding="{Binding Acc}" Width="44"/>
                   <DataGridTextColumn Header="Crit" Binding="{Binding Crits}" Width="44"/>
                   <DataGridTextColumn Header="Lim" Binding="{Binding Limit}" Width="42"/>
@@ -980,10 +1023,62 @@
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
             </ItemsControl>
+            <TextBlock Margin="2,10,0,2" FontWeight="Bold" Text="Slot lists: find by ability"/>
+            <StackPanel Orientation="Horizontal">
+              <ComboBox Width="190" ItemsSource="{Binding AbilityChoices}"
+                        DisplayMemberPath="Name" SelectedValuePath="Num"
+                        SelectedValue="{Binding EquipListAbility}" MaxDropDownHeight="400"
+                        IsEnabled="{Binding HasDatabase}"
+                        ToolTip="When set, every slot dropdown lists only items carrying this ability, best value first, with the value in brackets"/>
+              <Button Content="+" Width="22" Margin="6,0,0,0" Padding="0" Click="EqQuickAdd_Click"
+                      ToolTip="Pin the selected ability as a quick tag"/>
+              <!-- Beta 32: removable quick tags (persisted in settings.json) -->
+              <ItemsControl ItemsSource="{Binding QuickAbilityTags}" Margin="4,0,0,0"
+                            VerticalAlignment="Center">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal"/>
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Border CornerRadius="9" Margin="0,1,4,1" Padding="0"
+                            BorderThickness="1" BorderBrush="{DynamicResource ThGridFg}"
+                            ToolTip="{Binding ToolTip}">
+                      <Border.Style>
+                        <Style TargetType="Border">
+                          <Setter Property="Background" Value="Transparent"/>
+                          <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                              <Setter Property="Background" Value="#FFE5B4"/>
+                            </DataTrigger>
+                          </Style.Triggers>
+                        </Style>
+                      </Border.Style>
+                      <StackPanel Orientation="Horizontal">
+                        <Button Content="{Binding Label}" Padding="7,1,3,1" MinWidth="0"
+                                BorderThickness="0" Background="Transparent"
+                                Click="EqQuickTag_Click" Tag="{Binding}"/>
+                        <Button Content="✕" Padding="3,0,6,1" MinWidth="0" FontSize="10"
+                                BorderThickness="0" Background="Transparent"
+                                Click="EqQuickTagRemove_Click" Tag="{Binding}"
+                                ToolTip="Remove this tag"/>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Content="✕" Width="22" Margin="4,0,0,0" Padding="0" Click="EqQuickClear_Click"
+                      ToolTip="Show all items"/>
+            </StackPanel>
+            <TextBlock Margin="2,2,0,0" FontSize="11" Foreground="{DynamicResource ThHelper}"
+                       Text="{Binding EquipListAbilityLabel}"/>
+            <TextBlock Margin="2,2,0,0" FontWeight="SemiBold" Text="{Binding EqAbilityTotals}"
+                       ToolTip="Spell Dmg % is the value the engine sums into stat slot 33 (applied once as a percentage). Speed (a87) has no engine stat routing — informational only."/>
             <TextBlock Margin="2,10,0,2" FontWeight="Bold" Text="Find Best"/>
             <StackPanel Orientation="Horizontal">
               <ComboBox ItemsSource="{Binding FindBestCriteria}"
-                        SelectedItem="{Binding SelectedCriterion}" Width="150"
+                        SelectedItem="{Binding SelectedCriterion}" Width="190"
                         DisplayMemberPath="Label" MaxDropDownHeight="400"
                         IsEnabled="{Binding HasDatabase}"/>
               <Button Content="Find Best" Width="76" Margin="6,0,0,0"
@@ -1085,12 +1180,16 @@
               <DataGridTextColumn Header="Dmg/Spd" Binding="{Binding DmgSpd, StringFormat=N1}" Width="62"/>
               <DataGridTextColumn Header="#Swings" Binding="{Binding Swings, StringFormat=N2}" Width="62"/>
               <DataGridTextColumn Header="xSwings" Binding="{Binding XSwings}" Width="62"/>
+              <DataGridTextColumn Header="Extra" Binding="{Binding Extra}" Width="48"
+                                  ToolTipService.ToolTip="Extra-swing damage scaled by hit chance (xSwings + Extra = Avg Round)"/>
               <DataGridTextColumn Header="Dmg/Rnd" Binding="{Binding DmgRnd}" Width="62"/>
             </DataGrid.Columns>
           </DataGrid>
           <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
                    Text="{Binding WeaponDetailText, Mode=OneWay}"
-                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
+                   MouseDoubleClick="DetailText_MouseDoubleClick"
+                   ContextMenu="{StaticResource RefLineCtxMenu}"
+                   PreviewMouseRightButtonDown="DetailText_RightClick"/>
         </Grid>
       </GroupBox>
 
@@ -1130,7 +1229,8 @@
           </StackPanel>
           <DataGrid Grid.Row="1" ItemsSource="{Binding ArmourRows}"
                     x:Name="GridArmour" SelectedItem="{Binding SelectedArmour}"
-                    ContextMenu="{StaticResource ItemsCtxMenu}">
+                    ContextMenu="{StaticResource ItemsCtxMenu}"
+                    Sorting="ArmourGrid_Sorting">
             <DataGrid.Columns>
               <DataGridTextColumn Header="#" Binding="{Binding Number}" Width="48"/>
               <DataGridTemplateColumn Header="Slot" Width="44"
@@ -1150,7 +1250,8 @@
               <DataGridTextColumn Header="Armr Type" Binding="{Binding ArmrType}" Width="80"/>
               <DataGridTextColumn Header="Level" Binding="{Binding Lvl}" Width="46"/>
               <DataGridTextColumn Header="Enc" Binding="{Binding Enc}" Width="52"/>
-              <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="66"/>
+              <DataGridTextColumn Header="AC/DR" Binding="{Binding AcDr}" Width="66"
+                                  SortMemberPath="AcSortKey"/>
               <DataGridTextColumn Header="Acc" Binding="{Binding Acc}" Width="42"/>
               <DataGridTextColumn Header="Crits" Binding="{Binding Crits}" Width="46"/>
               <DataGridTextColumn Header="Limit" Binding="{Binding Limit}" Width="46"/>
@@ -1159,7 +1260,9 @@
           </DataGrid>
           <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
                    Text="{Binding ArmourDetailText, Mode=OneWay}"
-                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
+                   MouseDoubleClick="DetailText_MouseDoubleClick"
+                   ContextMenu="{StaticResource RefLineCtxMenu}"
+                   PreviewMouseRightButtonDown="DetailText_RightClick"/>
         </Grid>
       </GroupBox>
 
@@ -1300,7 +1403,9 @@
           </DataGrid>
           <TextBox Grid.Row="2" Style="{StaticResource DetailBox}" Margin="0,3,0,0"
                    Text="{Binding SundryDetailText, Mode=OneWay}"
-                   MouseDoubleClick="DetailText_MouseDoubleClick"/>
+                   MouseDoubleClick="DetailText_MouseDoubleClick"
+                   ContextMenu="{StaticResource RefLineCtxMenu}"
+                   PreviewMouseRightButtonDown="DetailText_RightClick"/>
         </Grid>
       </GroupBox>
 
@@ -1371,7 +1476,13 @@
               <DataGridTextColumn Header="Exp/Hr | Exp/(D+H)" Binding="{Binding ExpRateText}" SortMemberPath="ExpHr" Width="96"/>
               <DataGridTextColumn Header="Lair Exp | Rcvry" Binding="{Binding LairExpText}" SortMemberPath="LairExp" Width="82"/>
               <DataGridTextColumn Header="Mag." Binding="{Binding Mag}" Width="42"/>
+              <!-- 2.3.4: BS Defense column, NMR 1.83+ databases only (toggled in code-behind) -->
+              <DataGridTextColumn x:Name="ColMonBsDefense" Header="BS Def." Binding="{Binding BsDefenseText}"
+                                  SortMemberPath="BsDefense" Width="52" Visibility="Collapsed"/>
               <DataGridTextColumn Header="Undead" Binding="{Binding Undead}" Width="52"/>
+              <!-- AddMonster2LV :6306 "Spell Atk." — attack-type letters (C/F/S/L/N/W/P), string sort -->
+              <DataGridTextColumn Header="Spell Atk." Binding="{Binding SpellAtk}" Width="70"
+                                  ToolTipService.ToolTip="Spell attack types: C cold, F fire, S stone, L lightning, N normal, W water, P poison; after '+' = extra-hit / between-round spells"/>
             </DataGrid.Columns>
           </DataGrid>
           <GridSplitter Grid.Row="1" Grid.Column="1" Width="4"
@@ -1627,6 +1738,9 @@
             <TextBox Text="{Binding CharWalkSpeed}" Width="46"/>
             <TextBlock Text="Party:" VerticalAlignment="Center" Margin="8,0,3,0"/>
             <TextBox Text="{Binding PartySize}" Width="34"/>
+            <Button Content="Paste Party..." Margin="4,0,0,0" Padding="6,0" Click="PasteParty_Click"
+                    IsEnabled="{Binding HasDatabase}"
+                    ToolTip="v2.3.4 Paste Party: parse the whole party's stat sheets and fill these boxes from the averages"/>
             <TextBlock Text="AC:" VerticalAlignment="Center" Margin="8,0,3,0"/>
             <TextBox Width="38" Text="{Binding PartyAc, UpdateSourceTrigger=PropertyChanged}" ToolTip="Party avg AC (0 = default)"/>
             <TextBlock Text="DR:" VerticalAlignment="Center" Margin="5,0,3,0"/>
