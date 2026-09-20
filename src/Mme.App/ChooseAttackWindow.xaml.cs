@@ -37,7 +37,10 @@ public partial class ChooseAttackWindow : Window
             default: RbManual.IsChecked = true; break;
         }
         ChkBackstab.IsChecked = vm.AttackBackstab;
-        CmbMa.SelectedIndex = Math.Clamp(vm.AttackMartialArts - 1, 0, 2);
+        // Beta 33: 1/2/3 stock arts + 9/10/11 house arts when the realm grants them
+        CmbMa.ItemsSource = vm.MartialArtChoices;
+        CmbMa.SelectedValue = vm.MartialArtChoices.Any(c => c.Value == vm.AttackMartialArts)
+            ? vm.AttackMartialArts : 1;
         TxtPhys.Text = vm.CharDamage.ToString();
         TxtSpell.Text = vm.CharSpellDamage.ToString();
         CmbLearned.SelectedValue = vm.AttackSpellNumber;
@@ -59,7 +62,7 @@ public partial class ChooseAttackWindow : Window
         else if (RbMa.IsChecked == true)
         {
             _vm.AttackMode = MmeAttackType.MartialArts;
-            _vm.AttackMartialArts = CmbMa.SelectedIndex + 1;
+            _vm.AttackMartialArts = CmbMa.SelectedValue is int ma ? ma : 1;
         }
         else if (RbLearned.IsChecked == true)
         {

@@ -207,6 +207,18 @@ public partial class MainWindow : Window
     private void PullFromEq_Click(object sender, RoutedEventArgs e) =>
         _vm.PullCombatEntriesFromEq();
 
+    // ---- Beta 33: House Style Combat Settings (EQ tab group + Options menu) ----
+    private void HouseStyleApply_Click(object sender, RoutedEventArgs e)
+    {
+        // commit any TextBox still holding focus before applying
+        if (Keyboard.FocusedElement is TextBox tb)
+            tb.GetBindingExpression(TextBox.TextProperty)?.UpdateSource();
+        _vm.ApplyHouseStyle();
+    }
+
+    private void HouseStyleDefaults_Click(object sender, RoutedEventArgs e) =>
+        _vm.ResetHouseStyleDefaults();
+
     // ---- theme toggle (Options menu) ----
     private void ThemeDark_Click(object sender, RoutedEventArgs e)
     { ThemeManager.Apply(ThemeManager.Dark); SyncThemeChecks(); }

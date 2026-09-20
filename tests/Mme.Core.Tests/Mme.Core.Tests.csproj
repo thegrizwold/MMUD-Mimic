@@ -21,6 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- stock MegaMUD Spells.md (471 records) — the golden for the DAT builder's spell overlay -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Mme.Core\Mme.Core.csproj" />
     <ProjectReference Include="..\..\src\Mme.Data\Mme.Data.csproj" />
     <ProjectReference Include="..\..\src\Mme.App.ViewModels\Mme.App.ViewModels.csproj" />

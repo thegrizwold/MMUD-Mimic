@@ -23,6 +23,13 @@ public sealed class UserSettings
     public bool AutoSaveCharacter { get; set; }
     public bool DatVerModern { get; set; }
 
+    // ---- Beta 33: House Style Combat Settings (Options + EQ tab) ----
+    public bool HouseStyle { get; set; }
+    public double HouseMaxSwings { get; set; } = 5;
+    public double HouseQndStartSwings { get; set; } = 5;
+    public int HouseQndMaxBonus { get; set; } = 20;
+    public int HouseCritSoftCap { get; set; } = 40;
+
     /// <summary>Beta 32: the removable "Slot lists: find by ability" quick
     /// tags on the EQ tab (ability numbers). Null = never customised →
     /// the Beta 31 defaults (SpDmg% 165 / Speed 87 / Quickness 67).</summary>

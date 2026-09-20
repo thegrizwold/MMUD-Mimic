@@ -180,8 +180,9 @@ public class Beta31MegaMudBuilderTests
     [InlineData(2, 1, 1)]   // Priest
     [InlineData(3, 2, 8)]   // Druid
     [InlineData(4, 1, 10)]  // Bard
-    [InlineData(5, 1, 13)]  // Mystic is 13, not 11
-    [InlineData(5, 0, 13)]  // circle 0 → 1
+    [InlineData(5, 1, 11)]  // Mystic = 11 (stock Spells.md, 18/18 Kai records; 13 rendered as "Bard-3")
+    [InlineData(5, 0, 11)]  // Kai has one circle
+    [InlineData(5, 3, 11)]
     [InlineData(0, 1, 0)]   // unbanded
     [InlineData(1, 9, 6)]   // clamp circle to 3
     public void BandOf_MatchesFormatMd(long a, long b, int expect) =>
@@ -249,7 +250,11 @@ public class Beta31MegaMudBuilderTests
 
             using var db = MmeDatabase.Open(RealDb);
             var b = new MegaMudDataBuilder(db);
-            var stats = b.BuildAll(donor, outp);
+            // Beta 33: Spells.md is gated on a full realm export; this test checks the
+            // overlay mechanics with the MME-schema stock DB, so bypass the gate
+            var sel = MegaMudBuildSelection.AllFor(b.Source);
+            sel.Spells = true; sel.BypassSourceGate = true;
+            var stats = b.BuildAll(donor, outp, sel);
             var sp = stats.Single(s => s.Table == "Spells");
             Assert.True(sp.Preserved >= 1);             // #60000 kept (plus any donor id the realm lacks)
             Assert.True(sp.Inserted > 250);             // stock realm has 340 banded spells, 50 already in the donor

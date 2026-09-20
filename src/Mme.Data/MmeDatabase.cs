@@ -524,6 +524,24 @@ public sealed partial class MmeDatabase : IDisposable
     public int GetRaceAbilityValue(long raceNumber, int ability)
         => TableAbilityValue("Races", raceNumber, ability);
 
+    /// <summary>House martial arts (wccexcmd v57+): which of abilities 196/197/198
+    /// (Palm Strike / Lightning Kick / Deathblow) the loaded realm grants on the
+    /// Mystic class (class 15) via its Classes.Abil-N slots. Empty on a stock DB,
+    /// which is what hides the extra Martial Arts calculator entries.</summary>
+    public IReadOnlyList<int> GetHouseArtAbilities(long classNumber = 15)
+    {
+        var found = new List<int>(3);
+        foreach (int abil in new[] { 196, 197, 198 })
+        {
+            try
+            {
+                if (GetClassAbilityValue(classNumber, abil) != AbilityNotFound) found.Add(abil);
+            }
+            catch (Microsoft.Data.Sqlite.SqliteException) { break; } // no Classes table
+        }
+        return found;
+    }
+
     private int TableAbilityValue(string table, long number, int ability)
     {
         if (ability <= 0 || number <= 0) return AbilityNotFound;

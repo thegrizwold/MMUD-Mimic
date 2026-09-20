@@ -1,0 +1,38 @@
+# Beta 32 -> Beta 33: changed and added files
+
+M  PORT_LOG.md
+M  README.md
+M  docs/PARITY_LEDGER.md
+M  src/Mme.App.ViewModels/MainViewModel.Character.cs
+M  src/Mme.App.ViewModels/MainViewModel.Equipment.cs
+A  src/Mme.App.ViewModels/MainViewModel.HouseStyle.cs
+M  src/Mme.App.ViewModels/MainViewModel.Lairs.cs
+M  src/Mme.App.ViewModels/MainViewModel.Pathing.cs
+M  src/Mme.App.ViewModels/MainViewModel.Settings.cs
+M  src/Mme.App.ViewModels/MainViewModel.cs
+M  src/Mme.App.ViewModels/UserSettings.cs
+M  src/Mme.App/ChooseAttackWindow.xaml
+M  src/Mme.App/ChooseAttackWindow.xaml.cs
+M  src/Mme.App/IconConverters.cs
+M  src/Mme.App/MainWindow.xaml
+M  src/Mme.App/MainWindow.xaml.cs
+M  src/Mme.App/MegaMudBuildWindow.xaml
+M  src/Mme.App/MegaMudBuildWindow.xaml.cs
+M  src/Mme.App/Mme.App.csproj
+M  src/Mme.Core/Engine/GameEngineRules.cs
+M  src/Mme.Core/Formulas/AttackMath.cs
+M  src/Mme.Core/Formulas/EnumNames.cs
+A  src/Mme.Core/Formulas/HouseArts.cs
+M  src/Mme.Core/Model/CharacterProfile.cs
+M  src/Mme.Core/Model/GameEnums.cs
+M  src/Mme.Data/CharacterProfileService.cs
+M  src/Mme.Data/DamageOutputService.cs
+M  src/Mme.Data/EquipmentStatsService.cs
+A  src/Mme.Data/MegaMudDataBuilder.Realm.cs
+M  src/Mme.Data/MegaMudDataBuilder.cs
+M  src/Mme.Data/MmeDatabase.cs
+M  tests/Mme.Core.Tests/Beta31Tests.cs
+A  tests/Mme.Core.Tests/Beta33Tests.cs
+A  tests/Mme.Core.Tests/Fixtures
+M  tests/Mme.Core.Tests/Mme.Core.Tests.csproj
+M  tests/Mme.Core.Tests/Wave18AttackPanelTests.cs   (one comment reworded; not in the .diff - take the file)

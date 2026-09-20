@@ -140,6 +140,100 @@ public interface IGameEngineRules
     /// are ported verbatim.
     /// </summary>
     decimal ManaRegenBonus(decimal baseRegen, long mpRegen);
+
+    // ---------------------------------------------------------------- Beta 33
+    // "House Style Combat Settings" seams. The defaults below ARE the stock /
+    // GMUD engine constants; only HouseStyleRules overrides them.
+
+    /// <summary>Energy-per-swing below which Quick &amp; Deadly applies
+    /// (VB6 CalcQuickAndDeadlyBonus: <c>nEU &gt;= 200 → 0</c>). 200 energy =
+    /// 1000/200 = 5 swings, so this is "QnD starts at 5 swings".</summary>
+    decimal QndEnergyThreshold => 200m;
+
+    /// <summary>Stock QnD bonus cap (<c>If result &gt; 20 Then 20</c>). GMUD
+    /// has no cap (its divisor bounds the value).</summary>
+    decimal QndMaxBonus => 20m;
+
+    /// <summary>Crit-chance soft cap: above it stock applies
+    /// <c>40 + Fix((c-40)/3)</c> and GMUD clamps at 65 (CalculateAttack /
+    /// CalcCharacterStats). The "QnD cap" of the House Style panel.</summary>
+    short CritDiminishThreshold => 40;
+
+    /// <summary>VB6 nGlobalDatVer (0 = unknown). Only GreaterMudRules carries a
+    /// real value; exposed here so decorators forward it and callers stop
+    /// type-testing for GreaterMudRules.</summary>
+    double DatVersion => 0.0;
+}
+
+/// <summary>
+/// Beta 33 — "House Style Combat Settings": a decorator over the stock or
+/// GMUD rules that lets a custom realm (the owner's runs a wccexcmd addon
+/// with 6 swings for everyone) override the swing cap, where Quick &amp;
+/// Deadly starts, its bonus cap, and the crit soft-cap. Everything else is
+/// forwarded untouched. The QnD formulas are the VB6 ones with the 200
+/// energy threshold generalised: stock <c>(T − EU) + Fix((AGL−50)/10)</c>,
+/// GMUD <c>Fix((1000 − EU·(1000/T)) / divisor)</c>, where
+/// <c>T = 1000 / QndStartSwings</c>.
+/// </summary>
+public sealed class HouseStyleRules : IGameEngineRules
+{
+    public IGameEngineRules Inner { get; }
+    public HouseStyleRules(IGameEngineRules inner, double maxSwings,
+        double qndStartSwings, decimal qndMaxBonus, short critDiminishThreshold)
+    {
+        Inner = inner is HouseStyleRules h ? h.Inner : inner;
+        MaxSwings = maxSwings < 1 ? 1 : maxSwings;
+        QndStartSwings = qndStartSwings < 1 ? 1 : qndStartSwings;
+        QndMaxBonus = qndMaxBonus < 0 ? 0 : qndMaxBonus;
+        CritDiminishThreshold = critDiminishThreshold < 1 ? (short)1 : critDiminishThreshold;
+    }
+
+    public double QndStartSwings { get; }
+    public EngineKind Kind => Inner.Kind;
+    public double DatVersion => Inner.DatVersion;
+    public int HitMin(int? classArmourType = null) => Inner.HitMin(classArmourType);
+    public int HitCap => Inner.HitCap;
+    public int SpellHitCap => Inner.SpellHitCap;
+    public int DodgeCap(bool softCap = false) => Inner.DodgeCap(softCap);
+    public int MobHpRegenRounds => Inner.MobHpRegenRounds;
+    public double ExpNeeded(int startLevel, int expTable) => Inner.ExpNeeded(startLevel, expTable);
+    public double MaxSwings { get; }
+    public int RestingRateDivisor => Inner.RestingRateDivisor;
+    public long DodgeVsAccuracy(long rawDodge, long accy) => Inner.DodgeVsAccuracy(rawDodge, accy);
+    public long BackstabAccuracy(short stealth, short agility, short plusBsAccy, bool classStealth,
+        short plusNormalAccy, short level = 0, short strength = 0, short strReq = 0)
+        => Inner.BackstabAccuracy(stealth, agility, plusBsAccy, classStealth, plusNormalAccy,
+            level, strength, strReq);
+    public long MovementSpeed(long encumPct, long quickness = 0, long slowness = 0)
+        => Inner.MovementSpeed(encumPct, quickness, slowness);
+    public decimal ManaRegenBonus(decimal baseRegen, long mpRegen) => Inner.ManaRegenBonus(baseRegen, mpRegen);
+    public long Picklocks(long level, long agl, long intellect, long cha = 0) => Inner.Picklocks(level, agl, intellect, cha);
+    public long DodgeMaxAccuracyForPercent(long rawDodge, long percent) => Inner.DodgeMaxAccuracyForPercent(rawDodge, percent);
+
+    public decimal QndEnergyThreshold => (decimal)Math.Round(1000.0 / QndStartSwings, 4);
+    public decimal QndMaxBonus { get; }
+    public short CritDiminishThreshold { get; }
+
+    public decimal QuickAndDeadlyBonus(decimal agl, decimal eu, short encum)
+    {
+        decimal t = QndEnergyThreshold;
+        if (eu >= t) return 0m;
+        if (Inner.Kind == EngineKind.GreaterMud)
+        {
+            short divisor = (short)(DatVersion > 0.0 && DatVersion > 1.85 ? 40 : 50);
+            // stock GMUD: 1000 - eu*5 with 5 = 1000/200; generalised to 1000/T
+            short remain = (short)Mme.Core.Text.VbRuntime.Round(1000m - eu * (1000m / t));
+            return (decimal)Mme.Core.Text.VbRuntime.Fix(remain / (double)divisor);
+        }
+        if (encum > 66) return 0m;
+        // Fix(T): the EQ-panel copy (EquipmentStatsService.QuickAndDeadly, the
+        // OG's Long-based GetQuickAndDeadlyBonus) truncates, and the attack path
+        // re-adds this value over the panel's — keep the two identical.
+        decimal result = (Math.Truncate(t) - eu) + (decimal)Mme.Core.Text.VbRuntime.Fix((double)(agl - 50m) / 10.0);
+        if (result > QndMaxBonus) result = QndMaxBonus;
+        if (encum >= 33) result = (decimal)Mme.Core.Text.VbRuntime.Fix((double)result / 2.0);
+        return result;
+    }
 }
 
 /// <summary>Stock MajorMUD 1.11p rules (VB6: bGreaterMUD = False paths).</summary>

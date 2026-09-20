@@ -537,17 +537,16 @@ public sealed class DamageOutputService
 
                     case MmeAttackType.MartialArts:
                     {
+                        // 1 punch / 2 kick / 3 jumpkick / 9-11 house arts (Palm Strike,
+                        // Lightning Kick, Deathblow). The profile is built for the
+                        // jumpkick slot when a house art is selected — the arts share
+                        // its a35 skill arm in the engine.
+                        var maType = HouseArt.FromSelector(cfg.MartialArts);
+                        var profileType = HouseArt.For(maType) != null ? AttackTypeMud.Jumpkick : maType;
                         var tCharacter = _profileSource(new ProfileRequest(false,
-                            (AttackTypeMud)(cfg.MartialArts > 1 ? cfg.MartialArts : 1),
-                            0, bForceCharacter));
+                            profileType, 0, bForceCharacter));
                         if (nVsMagicLvl <= tCharacter.HitMagicNonWeapon)
                         {
-                            var maType = cfg.MartialArts switch
-                            {
-                                2 => AttackTypeMud.Kick,
-                                3 => AttackTypeMud.Jumpkick,
-                                _ => AttackTypeMud.Punch,
-                            };
                             tAttack = AttackMath.CalculateAttack(_rules, tCharacter,
                                 maType, speedAdj: nSpeedAdj, vsAc: nVsAc,
                                 vsDr: nVsDr, vsDodge: nVsDodge,

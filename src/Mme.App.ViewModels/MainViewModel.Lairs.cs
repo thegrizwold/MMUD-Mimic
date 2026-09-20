@@ -64,6 +64,7 @@ public sealed partial class MainViewModel
             if (_greaterMud == value) return;
             _greaterMud = value;
             OnChanged();
+            OnChanged(nameof(HouseStyleSummary));
             NotifyFindBestCriteria(); // VileWard et al. are GMUD-only
         }
     }
@@ -72,8 +73,12 @@ public sealed partial class MainViewModel
     public bool ModelC { get; set; } = true;
     public bool ModelD { get; set; } = true;
 
-    private IGameEngineRules Rules =>
-        GreaterMud ? new GreaterMudRules() : StockRules.Instance;
+    /// <summary>Engine rules for every calculator: stock or GMUD (with the
+    /// Options "GMUD 1.86+ dat" flag feeding nGlobalDatVer, which the OG's
+    /// jumpkick speed and QnD divisor read), wrapped in the House Style
+    /// overlay when that toggle is on.</summary>
+    private IGameEngineRules Rules => WrapHouseStyle(
+        GreaterMud ? new GreaterMudRules(DatVerModern ? 1.86 : 1.85) : StockRules.Instance);
 
     /// <summary>Reload lair aggregates + recompute every row's Exp/Hr.</summary>
     public void RecalculateLairs()

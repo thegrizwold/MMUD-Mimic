@@ -118,4 +118,16 @@ public sealed partial class MainViewModel
     // ---- Tools → Create MegaMUD DATs ----
     public MegaMudDataBuilder? MakeMegaMudBuilder() =>
         _db is null ? null : new MegaMudDataBuilder(_db);
+
+    /// <summary>Beta 33: a builder over a separately opened database — the full
+    /// realm export (NMR/MugenMUD .mdb → tools/mdb2sqlite .db) the sysop hands
+    /// out so Spells.md and Messages.md can be built. The caller owns and
+    /// disposes the returned database.</summary>
+    public static (MegaMudDataBuilder Builder, MmeDatabase Db)? MakeMegaMudBuilderFor(string realmDbPath)
+    {
+        if (!File.Exists(realmDbPath)) return null;
+        var db = MmeDatabase.Open(realmDbPath);
+        if (!db.Probe()) { db.Dispose(); return null; }
+        return (new MegaMudDataBuilder(db), db);
+    }
 }

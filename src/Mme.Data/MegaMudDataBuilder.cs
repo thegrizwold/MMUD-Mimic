@@ -270,8 +270,19 @@ public static class MegaMudContainer
 /// DamageResist=DR, Price=Cost, Limit=Game Limit, WeaponType/ArmourType/Worn,
 /// NegateSpell-N, ClassRest-N.
 /// </summary>
-public sealed class MegaMudDataBuilder(MmeDatabase db)
+public sealed partial class MegaMudDataBuilder
 {
+    private readonly MmeDatabase db;
+
+    /// <summary>Beta 33: the builder reads either an MMUD Explorer export or a
+    /// full realm export (NMR/MugenMUD .mdb through tools/mdb2sqlite) — see
+    /// <see cref="Source"/>. Column names translate through <c>C()</c>.</summary>
+    public MegaMudDataBuilder(MmeDatabase db)
+    {
+        this.db = db;
+        Source = ProbeSource(db);
+    }
+
     public const byte Friend = 2, Neutral = 3, Enemy = 4, Special = 5;
 
     /// <summary>Realm Alignment enum → attitude. Same table as the skill; check
@@ -302,26 +313,43 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
         BinaryPrimitives.WriteUInt32LittleEndian(p.AsSpan(off), (uint)Math.Clamp(v, 0, uint.MaxValue));
 
     private static long L(object? o) => o is null or DBNull ? 0 : Convert.ToInt64(Convert.ToDecimal(o is string s ? decimal.Parse(s, System.Globalization.CultureInfo.InvariantCulture) : o));
-    private static string S(object? o) => o as string ?? "";
+    private static string S(object? o) => Clean(o); // NMR exports NUL-pad their text
 
     private static readonly Dictionary<int, int> MageryRow = new() { [1] = 1, [2] = 0, [3] = 2, [4] = 3, [5] = 4 };
 
-    internal static int BandOf(long mageryA, long mageryB)
+    /// <summary>The Spells.md "type" byte MegaMUD shows as <b>Mystic 1</b>.
+    /// Read from the stock MegaMUD Spells.md (2026-09-20): every Magery-5 record
+    /// (way of the swan … way of the troll, 18 of them) carries <b>11</b>, and
+    /// the table crossed against the realm DB is Priest 1–3 · Mage 4–6 ·
+    /// Druid 7–9 · Bard 10 · Mystic 11. The Beta 31 theory (Mystic 13) made
+    /// MegaMUD's editor show Kai spells as "Bard-3".</summary>
+    public static int MysticBand { get; set; } = 11;
+
+    internal static int BandOf(long mageryA, long mageryB) => BandOf(mageryA, mageryB, MysticBand);
+
+    internal static int BandOf(long mageryA, long mageryB, int mysticBand)
     {
         if (!MageryRow.TryGetValue((int)mageryA, out int row)) return 0;
+        if (mageryA == 5) return mysticBand; // Kai: one circle, its own code
         int circle = (int)(mageryB == 0 ? 1 : mageryB);
         circle = Math.Clamp(circle, 1, 3);
         return row * 3 + circle;
     }
 
+    // Target checkbox nibble, read back from the stock MegaMUD Spells.md crossed
+    // against the realm (2026-09-20): 0→0x20, 1→0x10, 2→0x30, 4→0x40, 6→0x50
+    // (7 of 8 stock records; was 0x30), 7→0x70, 8→0x60, 11/12→0x80, 13→0x90.
     private static readonly Dictionary<long, byte> TargetCheckbox = new()
     {
-        [0] = 0x20, [1] = 0x10, [2] = 0x30, [4] = 0x40, [6] = 0x30, [7] = 0x70,
+        [0] = 0x20, [1] = 0x10, [2] = 0x30, [4] = 0x40, [6] = 0x50, [7] = 0x70,
         [8] = 0x60, [11] = 0x80, [12] = 0x80, [13] = 0x90,
     };
-    private static readonly HashSet<long> EvilAlways = [8, 12];
-    private static readonly HashSet<long> EvilIfDamage = [0, 4, 11];
-    private static readonly HashSet<long> DamageAbilities = [1, 17, 8, 19];
+    /// <summary>"Evil in combat" (flag 0x04). The stock file sets it exactly when
+    /// the spell carries Damage (1), Damage(-MR) (17), DrainLife (8) or the
+    /// engine's own EvilInCombat ability (52) — 466/466 stock records, no
+    /// target-based term. The Beta 31 heuristic (monster targets always evil,
+    /// Poison counted as damage) mis-set 44 records.</summary>
+    private static readonly HashSet<long> EvilAbilities = [1, 17, 8, 52];
 
     // ---------------------------------------------------------------- rows
     private sealed class SpellRow
@@ -329,6 +357,9 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
         public long Number; public string Name = "", Code = "";
         public long Level, MaxInc, Mana, Energy, Min, Max, Dur, Diff, Target, MageryA, MageryB,
             AttType, Cap, MaxIncLvls, MinInc, DurInc;
+        /// <summary>NMR "Spell Type" (0 offensive / 2 hostile / 3 utility) → byte 143;
+        /// −1 when the source is an MME export (byte preserved from the donor).</summary>
+        public long SpellType = -1;
         public long[] Abil = new long[10], AbilVal = new long[10];
     }
     private sealed class MonsterRow
@@ -351,10 +382,14 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
     {
         var rows = new Dictionary<long, SpellRow>();
         using var cmd = db.CreateCommand();
-        var sb = new StringBuilder("SELECT \"Number\",\"Name\",\"Short\",\"ReqLevel\",\"MaxInc\",\"ManaCost\"," +
-            "\"EnergyCost\",\"MinBase\",\"MaxBase\",\"Dur\",\"Diff\",\"Targets\",\"Magery\",\"MageryLVL\",\"AttType\"," +
-            "\"Cap\",\"MaxIncLVLs\",\"MinInc\",\"DurInc\"");
-        for (int i = 0; i <= 9; i++) sb.Append($",\"Abil-{i}\",\"AbilVal-{i}\"");
+        string T = "Spells";
+        var sb = new StringBuilder("SELECT \"Number\",\"Name\"," + string.Join(",", new[]
+        {
+            "Short", "ReqLevel", "MaxInc", "ManaCost", "EnergyCost", "MinBase", "MaxBase", "Dur", "Diff",
+            "Targets", "Magery", "MageryLVL", "AttType", "Cap", "MaxIncLVLs", "MinInc", "DurInc",
+        }.Select(c => C(T, c))));
+        for (int i = 0; i <= 9; i++) sb.Append($",{C(T, $"Abil-{i}")},{C(T, $"AbilVal-{i}")}");
+        if (Full) sb.Append(",\"Spell Type\"");
         sb.Append(" FROM \"Spells\"");
         cmd.CommandText = sb.ToString();
         using var r = cmd.ExecuteReader();
@@ -368,6 +403,7 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
                 AttType = L(r[14]), Cap = L(r[15]), MaxIncLvls = L(r[16]), MinInc = L(r[17]), DurInc = L(r[18]),
             };
             for (int i = 0; i <= 9; i++) { s.Abil[i] = L(r[19 + i * 2]); s.AbilVal[i] = L(r[20 + i * 2]); }
+            if (Full) s.SpellType = L(r[39]);
             if (s.Number > 0 && s.Number <= 65535) rows[s.Number] = s;
         }
         return rows;
@@ -377,10 +413,13 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
     {
         var rows = new Dictionary<long, MonsterRow>();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT \"Number\",\"Name\",\"HPRegen\",\"HP\",\"Energy\",\"MagicRes\",\"Follow%\"," +
-            "\"ArmourClass\",\"DamageResist\",\"CharmLVL\",\"Type\",\"Align\",\"GameLimit\",\"RegenTime\",\"R\"," +
-            "\"Weapon\",\"EXP\",\"ExpMulti\",\"DeathSpell\",\"CreateSpell\",\"AttHitSpell-0\",\"AttHitSpell-1\"," +
-            "\"AttHitSpell-2\" FROM \"Monsters\"";
+        string T = "Monsters";
+        cmd.CommandText = "SELECT \"Number\",\"Name\"," + string.Join(",", new[]
+        {
+            "HPRegen", "HP", "Energy", "MagicRes", "Follow%", "ArmourClass", "DamageResist", "CharmLVL", "Type",
+            "Align", "GameLimit", "RegenTime", "R", "Weapon", "EXP", "ExpMulti", "DeathSpell", "CreateSpell",
+            "AttHitSpell-0", "AttHitSpell-1", "AttHitSpell-2",
+        }.Select(c => C(T, c))) + " FROM \"Monsters\"";
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
@@ -405,11 +444,15 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
     {
         var rows = new Dictionary<long, ItemRow>();
         using var cmd = db.CreateCommand();
-        var sb = new StringBuilder("SELECT \"Number\",\"Name\",\"ItemType\",\"Encum\",\"Limit\",\"UseCount\"," +
-            "\"StrReq\",\"Min\",\"Max\",\"Accy\",\"Speed\",\"DamageResist\",\"WeaponType\",\"ArmourType\",\"Worn\",\"Price\"");
-        for (int i = 0; i <= 19; i++) sb.Append($",\"Abil-{i}\",\"AbilVal-{i}\"");
-        for (int i = 0; i <= 3; i++) sb.Append($",\"NegateSpell-{i}\"");
-        for (int i = 0; i <= 9; i++) sb.Append($",\"ClassRest-{i}\"");
+        string T = "Items";
+        var sb = new StringBuilder("SELECT \"Number\",\"Name\"," + string.Join(",", new[]
+        {
+            "ItemType", "Encum", "Limit", "UseCount", "StrReq", "Min", "Max", "Accy", "Speed", "DamageResist",
+            "WeaponType", "ArmourType", "Worn", "Price",
+        }.Select(c => C(T, c))));
+        for (int i = 0; i <= 19; i++) sb.Append($",{C(T, $"Abil-{i}")},{C(T, $"AbilVal-{i}")}");
+        for (int i = 0; i <= 3; i++) sb.Append($",{C(T, $"NegateSpell-{i}")}");
+        for (int i = 0; i <= 9; i++) sb.Append($",{C(T, $"ClassRest-{i}")}");
         sb.Append(" FROM \"Items\"");
         cmd.CommandText = sb.ToString();
         using var r = cmd.ExecuteReader();
@@ -435,7 +478,7 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
     {
         var rows = new Dictionary<long, (string, long, long)>();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT \"Number\",\"Name\",\"CombatLVL\",\"MinHits\" FROM \"Classes\"";
+        cmd.CommandText = $"SELECT \"Number\",\"Name\",{C("Classes", "CombatLVL")},{C("Classes", "MinHits")} FROM \"Classes\"";
         using var r = cmd.ExecuteReader();
         while (r.Read()) { long n = L(r[0]); if (n > 0) rows[n] = (S(r[1]), L(r[2]), L(r[3])); }
         return rows;
@@ -460,16 +503,20 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
         int f = p[37] & 0x08;
         f |= TargetCheckbox.GetValueOrDefault(o.Target, (byte)0);
         if (o.Dur > 0) f |= 0x02;
-        bool hasDmg = o.Abil.Any(DamageAbilities.Contains);
-        if (EvilAlways.Contains(o.Target) || (EvilIfDamage.Contains(o.Target) && hasDmg)) f |= 0x04;
+        if (o.Abil.Any(EvilAbilities.Contains)) f |= 0x04;
         p[37] = (byte)f;
         p[82] = U8(o.Level); p[83] = U8(o.MaxInc);
         U16(p, 84, Math.Max(0, o.Mana)); U16(p, 86, o.Energy);
-        U16(p, 88, Math.Abs(o.Min)); U16(p, 90, Math.Abs(o.Max));
+        // signed: curses carry negative Min/Max in the stock file (−6 = 0xFFFA);
+        // Beta 31 wrote Math.Abs and lost the sign on 51 stock records
+        I16(p, 88, o.Min); I16(p, 90, o.Max);
         U16(p, 92, o.Dur); I16(p, 94, o.Diff);
         p[96] = U8(o.Target); p[97] = (byte)BandOf(o.MageryA, o.MageryB); p[98] = U8(o.AttType);
         p[139] = U8(o.Cap); p[140] = U8(o.MaxIncLvls); p[141] = U8(o.MinInc); p[142] = U8(o.DurInc);
-        // p[143] Spell Type: not in the MME schema → preserved
+        // p[143] Spell Type: NMR "Spell Type" on a full realm export (463/466 stock
+        // records agree: 0 offensive / 3 utility); preserved from the donor on an
+        // MME export, whose schema lacks it.
+        if (o.SpellType >= 0) p[143] = U8(o.SpellType);
         if (fromItem is not null) U16(p, 144, fromItem.Value);
         for (int i = 0; i < 10; i++) { U16(p, 99 + i * 2, o.Abil[i]); I16(p, 119 + i * 2, o.AbilVal[i]); }
         return p;
@@ -546,10 +593,17 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
     /// <summary>Full build. donorDir holds Spells.md / Monsters.md / Items.md
     /// (+ optional Races.md, Classes.md, messages.md). Returns per-table stats;
     /// the caller MUST run Verify on each output.</summary>
-    public List<TableStat> BuildAll(string donorDir, string outDir)
+    public List<TableStat> BuildAll(string donorDir, string outDir) =>
+        BuildAll(donorDir, outDir, MegaMudBuildSelection.AllFor(Source));
+
+    /// <summary>Full build of the selected tables. Spells.md and Messages.md are
+    /// refused (stat note, nothing written) when the source is an MME export —
+    /// <see cref="RealmSourceInfo.RequiresFullRealm"/>.</summary>
+    public List<TableStat> BuildAll(string donorDir, string outDir, MegaMudBuildSelection sel)
     {
         Directory.CreateDirectory(outDir);
         var stats = new List<TableStat>();
+        bool gate = !Full && !sel.BypassSourceGate;
         var items = LoadItems();
         var fromItem = new Dictionary<long, long>();
         foreach (var (inum, it) in items.OrderBy(kv => kv.Key))
@@ -560,38 +614,55 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
         string D(string n) => Path.Combine(donorDir, n + ".md");
         string O(string n) => Path.Combine(outDir, n + ".md");
 
-        if (File.Exists(D("Spells")))
+        if (!sel.Spells) stats.Add(new TableStat("Spells", 0, 0, 0, 0, 0, 0, "not selected"));
+        else if (gate) stats.Add(new TableStat("Spells", 0, 0, 0, 0, 0, 0, "NOT BUILT — " + RealmSourceInfo.RequiresFullRealm));
+        else if (File.Exists(D("Spells")))
             stats.Add(BuildTable(D("Spells"), O("Spells"), "Spells", LoadSpells(),
                 (p, o, _) => OverlaySpell(p, o, fromItem.TryGetValue(o.Number, out long fi) ? fi : null),
                 o => !(StripUnbandedSpells && BandOf(o.MageryA, o.MageryB) == 0),
-                "Spell Type byte (abs143) preserved from donor — not in the MME schema."));
+                "Spell Type byte (abs143) from the realm's Spell Type."));
         else stats.Add(new TableStat("Spells", 0, 0, 0, 0, 0, 0, "donor Spells.md missing — skipped"));
 
-        if (File.Exists(D("Monsters")))
+        if (!sel.Monsters) stats.Add(new TableStat("Monsters", 0, 0, 0, 0, 0, 0, "not selected"));
+        else if (File.Exists(D("Monsters")))
             stats.Add(BuildTable(D("Monsters"), O("Monsters"), "Monsters", LoadMonsters(),
                 (p, o, _) => OverlayMonster(p, o), _ => true,
-                "Group byte (abs69) preserved from donor — not in the MME schema."));
+                "Group byte (abs69) preserved from donor (no verified map to the realm's Group)."));
         else stats.Add(new TableStat("Monsters", 0, 0, 0, 0, 0, 0, "donor Monsters.md missing — skipped"));
 
-        if (File.Exists(D("Items")))
+        if (!sel.Items) stats.Add(new TableStat("Items", 0, 0, 0, 0, 0, 0, "not selected"));
+        else if (File.Exists(D("Items")))
             stats.Add(BuildTable(D("Items"), O("Items"), "Items", items,
                 (p, o, fresh) => OverlayItem(p, o, fresh), _ => true, ""));
         else stats.Add(new TableStat("Items", 0, 0, 0, 0, 0, 0, "donor Items.md missing — skipped"));
 
-        if (File.Exists(D("Races")))
+        if (sel.Races && File.Exists(D("Races")))
             stats.Add(BuildTable(D("Races"), O("Races"), "Races", LoadRaces(),
                 (p, o, _) => { var q = (byte[])p.Clone(); PutStr(q, 0, 30, o); return q; }, _ => true,
                 "names only (nothing else mirrors a realm column)"));
-        if (File.Exists(D("Classes")))
+        if (sel.Classes && File.Exists(D("Classes")))
             stats.Add(BuildTable(D("Classes"), O("Classes"), "Classes", LoadClasses(),
                 (p, o, _) => { var q = (byte[])p.Clone(); PutStr(q, 0, 30, o.Name); q[32] = U8(o.Combat); q[33] = U8(o.MinHp); return q; },
                 _ => true, "name + Combat + Min HP"));
-        foreach (var msg in new[] { "messages", "Messages" })
-            if (File.Exists(D(msg)))
+        if (sel.Messages)
+        {
+            if (gate) stats.Add(new TableStat("Messages", 0, 0, 0, 0, 0, 0, "NOT BUILT — " + RealmSourceInfo.RequiresFullRealm));
+            else
             {
-                File.Copy(D(msg), O(msg), overwrite: true);
-                stats.Add(new TableStat(msg, 0, 0, 0, 0, 0, 0, "copied from donor (not built — custom spells get no recognition entries)"));
+                var msgs = LoadSpellMessages();
+                WriteMessagesPreview(outDir, msgs);
+                // the donor's messages.md (either spelling) is the overlay base;
+                // no donor → a fresh file holding only the realm's spell messages
+                string? donorMsg = new[] { D("messages"), D("Messages") }.FirstOrDefault(File.Exists);
+                var entries = donorMsg is null ? [] : MegaMudMessagesFile.Parse(donorMsg);
+                int before = entries.Count;
+                var (ins, fill, kept) = MegaMudMessagesFile.Overlay(entries, msgs);
+                File.WriteAllBytes(O("messages"), MegaMudMessagesFile.Serialize(entries));
+                stats.Add(new TableStat("messages", 0, ins, kept, before, entries.Count, 0,
+                    $"{msgs.Count} realm spell messages ({msgs.Count(m => m.Timed)} timed): {ins} inserted, {fill} donor records given their wear-off line, " +
+                    $"{kept} left as the donor had them, {before} donor records preserved. Text file — no tree to verify; Messages-preview.txt lists the realm side."));
             }
+        }
         return stats;
     }
 
@@ -601,7 +672,7 @@ public sealed class MegaMudDataBuilder(MmeDatabase db)
     {
         var res = new List<(long, int, string)>();
         using var cmd = db.CreateCommand();
-        cmd.CommandText = "SELECT \"Align\", COUNT(*), MIN(\"Name\") FROM \"Monsters\" GROUP BY \"Align\" ORDER BY \"Align\"";
+        cmd.CommandText = $"SELECT {C("Monsters", "Align")}, COUNT(*), MIN(\"Name\") FROM \"Monsters\" GROUP BY {C("Monsters", "Align")} ORDER BY {C("Monsters", "Align")}";
         using var r = cmd.ExecuteReader();
         while (r.Read()) res.Add((L(r[0]), (int)L(r[1]), S(r[2])));
         return res;

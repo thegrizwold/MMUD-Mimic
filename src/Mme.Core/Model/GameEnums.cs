@@ -13,6 +13,11 @@ public enum AttackTypeMud
     Normal = 5,    // VB6: a5_Normal
     Bash = 6,      // VB6: a6_Bash
     Smash = 7,     // VB6: a7_Smash
+    // Beta 33 — House Style arts (wccexcmd v62+, engine attack types 9/10/11).
+    // Not in VB6 MME; see Mme.Core/Formulas/HouseArts.cs.
+    PalmStrike = 9,
+    LightningKick = 10,
+    Deathblow = 11,
 }
 
 /// <summary>

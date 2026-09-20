@@ -25,6 +25,8 @@ public sealed partial class MainViewModel
         DisableKaiAutolearn = _settings.DisableKaiAutolearn;
         AutoSaveCharacter = _settings.AutoSaveCharacter;
         DatVerModern = _settings.DatVerModern;
+        SeedHouseStyle(_settings.HouseStyle, _settings.HouseMaxSwings,
+            _settings.HouseQndStartSwings, _settings.HouseQndMaxBonus, _settings.HouseCritSoftCap);
         if (_settings.QuickAbilityTags is not null)
             SetQuickAbilityTags(_settings.QuickAbilityTags);
         _settingsLoaded = true;
@@ -43,6 +45,12 @@ public sealed partial class MainViewModel
         _settings.DisableKaiAutolearn = DisableKaiAutolearn;
         _settings.AutoSaveCharacter = AutoSaveCharacter;
         _settings.DatVerModern = DatVerModern;
+        var hs = AppliedHouseStyle;
+        _settings.HouseStyle = HouseStyle;
+        _settings.HouseMaxSwings = hs.MaxSwings;
+        _settings.HouseQndStartSwings = hs.QndStart;
+        _settings.HouseQndMaxBonus = hs.QndMax;
+        _settings.HouseCritSoftCap = hs.CritSoft;
         _settings.QuickAbilityTags = QuickAbilityTags.Select(t => t.Ability).ToList();
         _settings.Save(_settingsPath);
     }

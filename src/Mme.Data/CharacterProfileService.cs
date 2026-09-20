@@ -38,6 +38,10 @@ public sealed class CharacterSheetState
     public double PlusBsAccy;            // (13) tag
     public double PlusBsMinDmg;          // (14) tag
     public double PlusBsMaxDmg;          // (15) tag
+    /// <summary>House quest: smash swings per round (a32 value, 1..6; 1 = stock).</summary>
+    public int HouseSmashSwings = 1;
+    /// <summary>House quest: PerStealth rank (a186 value, 0..3) — backstab damage multiplier.</summary>
+    public int HousePerStealthRank;
     public double Stealth;               // (19) tag
     public double PlusMinDamage;         // (30) tag
     public double QuicknessTag;          // (31) tag — CalcMovementSpeed arg
@@ -186,6 +190,8 @@ public sealed class CharacterProfileService
             tChar.PlusBsAccy = VbRuntime.CInt(ui.PlusBsAccy);
             tChar.PlusBsMinDmg = VbRuntime.CInt(ui.PlusBsMinDmg);
             tChar.PlusBsMaxDmg = VbRuntime.CInt(ui.PlusBsMaxDmg);
+            tChar.HouseSmashSwings = (short)Math.Clamp(ui.HouseSmashSwings, 1, 6);
+            tChar.HousePerStealthRank = (short)Math.Clamp(ui.HousePerStealthRank, 0, 3);
             tChar.Stealth = VbRuntime.CInt(ui.Stealth);
             tChar.Hp = ui.CharMaxHp;
             tChar.HpRegen = ui.CharRestRate;
@@ -318,8 +324,7 @@ public sealed class CharacterProfileService
             tChar.HitMagic = 9999;
             tChar.HitMagicNonWeapon = 9999;
             tChar.WalkSpeed = 1.25;
-            if (nAttackTypeMud is >= AttackTypeMud.Punch
-                and <= AttackTypeMud.Jumpkick)
+            if (HouseArt.IsMartialArt(nAttackTypeMud))
             {
                 tChar.MaPlusSkill[1] = 1;
                 tChar.MaPlusSkill[2] = 1;
@@ -342,8 +347,7 @@ public sealed class CharacterProfileService
             tChar.Hp = 10000;
             tChar.HpRegen = tChar.Hp * 0.05;
             tChar.WalkSpeed = 1.25;
-            if (nAttackTypeMud is >= AttackTypeMud.Punch
-                and <= AttackTypeMud.Jumpkick)
+            if (HouseArt.IsMartialArt(nAttackTypeMud))
             {
                 tChar.MaPlusSkill[1] = 1;
                 tChar.MaPlusSkill[2] = 1;

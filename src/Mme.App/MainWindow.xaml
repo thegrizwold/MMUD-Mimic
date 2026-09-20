@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Mme.App"
         xmlns:data="clr-namespace:Mme.Data;assembly=Mme.Data"
-        Title="MMUD-Mimic — Beta 32" Icon="app-icon.png" Width="1280" Height="760"
+        Title="MMUD-Mimic — Beta 33" Icon="app-icon.png" Width="1280" Height="760"
         PreviewKeyDown="Window_TabHotkeys"
         FontFamily="{DynamicResource ThFont}" FontSize="{DynamicResource ThFontSize}"
         Background="{DynamicResource ThBg}" Foreground="{DynamicResource ThLabel}"
@@ -17,6 +17,7 @@
     <local:WeaponKindGeometryConverter x:Key="WeaponGeo"/>
     <local:SlotGeometryConverter x:Key="SlotGeo"/>
     <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    <local:BoolToFontWeightConverter x:Key="BoolToBold"/>
 
 
     <Style x:Key="DetailBox" TargetType="TextBox">
@@ -169,6 +170,9 @@
         <MenuItem Header="Show _shops first in item references" IsCheckable="True"
                   IsChecked="{Binding ShopsFirstInRefs}"
                   ToolTip="Item detail / Item Manager reference lists pin Shop rows above everything else (v2.3.4)"/>
+        <MenuItem Header="_House Style Combat Settings" IsCheckable="True"
+                  IsChecked="{Binding HouseStyle}"
+                  ToolTip="{Binding HouseStyleSummary}"/>
         <Separator/>
         <MenuItem Header="_Clear Learned Spells" Click="ClearLearned_Click"/>
         <Separator/>
@@ -445,6 +449,21 @@
                   <ComboBoxItem Content="+4 mana, +6 bs, +1 stealth"/>
                   <ComboBoxItem Content="+10 bs, +2 stealth"/>
                 </ComboBox>
+              </StackPanel>
+              <!-- Beta 33: wccexcmd house quests (ability-ladder rewards) -->
+              <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                <CheckBox Content="High Sorcery" VerticalAlignment="Center" IsChecked="{Binding QuestHighSorcery}"
+                          ToolTip="Test of High Sorcery (Mage Test, any order): +50 max mana, +15 mana regen, +30 SpDmg%"/>
+                <TextBlock Text="PerStealth:" VerticalAlignment="Center" Margin="10,0,4,0"
+                           ToolTip="PerStealth rank (ability 186): backstab damage × (100 + level + 125·rank) / 100"/>
+                <ComboBox Width="44" ItemsSource="{Binding HousePerStealthChoices}"
+                          SelectedItem="{Binding HousePerStealthRank}"
+                          ToolTip="0 = stock; ranks 1–3 from the PerStealth quests"/>
+                <TextBlock Text="Smash swings:" VerticalAlignment="Center" Margin="10,0,4,0"
+                           ToolTip="Smash swings per round (ability 32 value): 1 = stock single smash; the Advanced Smash quests raise it"/>
+                <ComboBox Width="44" ItemsSource="{Binding HouseSmashSwingChoices}"
+                          SelectedItem="{Binding HouseSmashSwings}"
+                          ToolTip="Each smash keeps its 1.2× / 5× multipliers; energy = 1000 / swings"/>
               </StackPanel>
               <WrapPanel MaxWidth="400" Margin="0,4,0,0"
                          Visibility="{Binding GreaterMud, Converter={StaticResource BoolToVis}}">
@@ -973,15 +992,42 @@
             <Border Background="Black" Padding="8" HorizontalAlignment="Left">
               <Grid>
                 <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/><ColumnDefinition Width="55"/>
-                  <ColumnDefinition Width="55"/><ColumnDefinition Width="55"/>
+                  <ColumnDefinition Width="Auto"/><ColumnDefinition Width="62"/>
+                  <ColumnDefinition Width="62"/><ColumnDefinition Width="62"/>
+                  <!-- Beta 33: house arts (a196/197/198 on the Mystic) — collapsed on a stock DB -->
+                  <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                   <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Column="1" Style="{StaticResource EqLbl}" Text="Punch"/>
                 <TextBlock Grid.Column="2" Style="{StaticResource EqLbl}" Text="Kick"/>
                 <TextBlock Grid.Column="3" Style="{StaticResource EqLbl}" Text="JmpKck"/>
+                <TextBlock Grid.Column="4" Style="{StaticResource EqLbl}" Text="Ps" Width="62" ToolTip="Palm Strike (ability 196): jumpkick arm × 1.90, speed 2200"
+                           Visibility="{Binding HouseArtPsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Column="5" Style="{StaticResource EqLbl}" Text="Lk" Width="62" ToolTip="Lightning Kick (ability 197): jumpkick arm × 2.10, speed 2500"
+                           Visibility="{Binding HouseArtLkVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Column="6" Style="{StaticResource EqLbl}" Text="Db" Width="62" ToolTip="Deathblow (ability 198): jumpkick arm × 4.00, speed 3500, −50 accuracy"
+                           Visibility="{Binding HouseArtDbVisible, Converter={StaticResource BoolToVis}}"/>
+                <!-- the arts share the jumpkick skill / +dmg / +accy slots -->
+                <TextBlock Grid.Row="1" Grid.Column="4" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillJk}" Visibility="{Binding HouseArtPsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="1" Grid.Column="5" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillJk}" Visibility="{Binding HouseArtLkVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="1" Grid.Column="6" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillJk}" Visibility="{Binding HouseArtDbVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="2" Grid.Column="4" Style="{StaticResource EqVal}" Text="{Binding EqMaDmgJk}" Visibility="{Binding HouseArtPsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="2" Grid.Column="5" Style="{StaticResource EqVal}" Text="{Binding EqMaDmgJk}" Visibility="{Binding HouseArtLkVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="2" Grid.Column="6" Style="{StaticResource EqVal}" Text="{Binding EqMaDmgJk}" Visibility="{Binding HouseArtDbVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="3" Grid.Column="4" Style="{StaticResource EqVal}" Text="{Binding EqMaAccyJk}" Visibility="{Binding HouseArtPsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="3" Grid.Column="5" Style="{StaticResource EqVal}" Text="{Binding EqMaAccyJk}" Visibility="{Binding HouseArtLkVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="3" Grid.Column="6" Style="{StaticResource EqVal}" Text="{Binding EqMaAccyJk}" Visibility="{Binding HouseArtDbVisible, Converter={StaticResource BoolToVis}}"/>
+                <!-- Beta 33: per-art round damage ("avg @ swings") from the attack engine -->
+                <TextBlock Grid.Row="4" Style="{StaticResource EqLbl}" Text="Round" ToolTip="Average damage per round @ swings, with the current sheet and House Style rules"/>
+                <TextBlock Grid.Row="4" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqMaRoundPunch}"/>
+                <TextBlock Grid.Row="4" Grid.Column="2" Style="{StaticResource EqVal}" Text="{Binding EqMaRoundKick}"/>
+                <TextBlock Grid.Row="4" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqMaRoundJk}"/>
+                <TextBlock Grid.Row="4" Grid.Column="4" Style="{StaticResource EqVal}" Text="{Binding EqMaRoundPs}" Visibility="{Binding HouseArtPsVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="4" Grid.Column="5" Style="{StaticResource EqVal}" Text="{Binding EqMaRoundLk}" Visibility="{Binding HouseArtLkVisible, Converter={StaticResource BoolToVis}}"/>
+                <TextBlock Grid.Row="4" Grid.Column="6" Style="{StaticResource EqVal}" Text="{Binding EqMaRoundDb}" Visibility="{Binding HouseArtDbVisible, Converter={StaticResource BoolToVis}}"/>
                 <TextBlock Grid.Row="1" Style="{StaticResource EqLbl}" Text="Skill"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillPunch}" Tag="37"/>
                 <TextBlock Grid.Row="1" Grid.Column="2" Style="{StaticResource EqVal}" Text="{Binding EqMaSkillKick}" Tag="38"/>
@@ -996,6 +1042,39 @@
                 <TextBlock Grid.Row="3" Grid.Column="3" Style="{StaticResource EqVal}" Text="{Binding EqMaAccyJk}" Tag="42"/>
               </Grid>
             </Border>
+            <!-- Beta 33: House Style Combat Settings (also under Options) -->
+            <GroupBox Margin="0,8,0,0" Padding="4" HorizontalAlignment="Left"
+                      ToolTip="{Binding HouseStyleSummary}">
+              <GroupBox.Header>
+                <CheckBox Content="House Style Combat Settings" FontWeight="Bold"
+                          IsChecked="{Binding HouseStyle}"
+                          ToolTip="Overrides the engine's swing cap, Quick &amp; Deadly threshold/cap and crit soft-cap for realms running the wccexcmd addon. Edit, then press Apply."/>
+              </GroupBox.Header>
+              <StackPanel IsEnabled="{Binding HouseStyle}">
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                  <TextBlock Text="Max Combat Swings:" VerticalAlignment="Center" Width="128"/>
+                  <TextBox Width="40" Text="{Binding HouseMaxSwings, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="Swing cap per round (stock 5, GMUD 6, the addon's 166-energy floor gives 6)"/>
+                  <TextBlock Text="QnD Starts at:" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                  <TextBox Width="40" Text="{Binding HouseQndStartSwings, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="Quick &amp; Deadly applies once a swing costs less than 1000 / this many swings of energy (stock 5 → under 200)"/>
+                  <TextBlock Text="swings" VerticalAlignment="Center" Margin="4,0,0,0"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,2">
+                  <TextBlock Text="Crit soft-cap:" VerticalAlignment="Center" Width="128"
+                             ToolTip="Crit chance above this counts 1/3 (stock) — MME's 40"/>
+                  <TextBox Width="40" Text="{Binding HouseCritSoftCap, UpdateSourceTrigger=PropertyChanged}"/>
+                  <TextBlock Text="QnD max bonus:" VerticalAlignment="Center" Margin="12,0,4,0"
+                             ToolTip="Cap on the stock Quick &amp; Deadly crit bonus (20); GMUD's /50 (/40) formula has no cap"/>
+                  <TextBox Width="40" Text="{Binding HouseQndMaxBonus, UpdateSourceTrigger=PropertyChanged}"/>
+                  <Button Content="Apply" Width="60" Margin="14,0,0,0" Click="HouseStyleApply_Click"
+                          FontWeight="{Binding HouseStyleDirty, Converter={StaticResource BoolToBold}}"
+                          ToolTip="Re-run every calculator (EQ panel, attack line, MA calculator, monster damage, lairs) with these values"/>
+                  <Button Content="Defaults" Width="60" Margin="4,0,0,0" Click="HouseStyleDefaults_Click"
+                          ToolTip="5 swings / QnD from 5 swings / crit soft-cap 40 / QnD max 20 (press Apply)"/>
+                </StackPanel>
+              </StackPanel>
+            </GroupBox>
             <TextBlock Margin="2,10,0,2" FontWeight="Bold" Text="Carried Items"/>
             <ItemsControl ItemsSource="{Binding CarriedRows}"
                           IsEnabled="{Binding HasDatabase}">
@@ -1717,7 +1796,10 @@
             <TextBlock Text="@Lvl:" VerticalAlignment="Center" Margin="8,0,3,0"/>
             <TextBox Text="{Binding AttackSpellLevel}" Width="38"/>
             <TextBlock Text="MA:" VerticalAlignment="Center" Margin="8,0,3,0"/>
-            <TextBox Text="{Binding AttackMartialArts}" Width="28"/>
+            <ComboBox Width="92" ItemsSource="{Binding MartialArtChoices}"
+                      DisplayMemberPath="Label" SelectedValuePath="Value"
+                      SelectedValue="{Binding AttackMartialArts}"
+                      ToolTip="Martial art for the Martial Arts attack mode (house arts Ps/Lk/Db appear when the realm grants them on the Mystic)"/>
             <CheckBox Content="Backstab" IsChecked="{Binding AttackBackstab}"
                       VerticalAlignment="Center" Margin="8,0,0,0"/>
             <TextBlock Text="BS Wpn #:" VerticalAlignment="Center" Margin="8,0,3,0"/>

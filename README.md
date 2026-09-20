@@ -105,13 +105,51 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
   `docs/SIGNING.md` for why SmartScreen flagged the betas and the owner's
   Azure checklist).
 
+## Beta 33 additions (house rules for wccexcmd realms)
+
+- **House Style Combat Settings** (EQ tab group and Options menu): an opt-in
+  overlay on the stock/GMUD rules for realms running the wccexcmd addon —
+  **Max Combat Swings**, **QnD Starts at [x] swings** (Quick & Deadly applies
+  under 1000/x energy; stock 5 → 200), **Crit soft-cap** (MME's 40, above
+  which crits count 1/3) and **QnD max bonus** (stock 20). Defaults 5 / 5 /
+  40 / 20 are byte-identical to the engine; edit and press **Apply** to
+  recompute the EQ panel, attack line, MA calculator, monster damage and
+  lair Exp/Hr. Saved in `settings.json`.
+- **House martial arts**: when the loaded realm grants ability 196 / 197 /
+  198 on the Mystic (class 15), **Palm Strike (Ps)**, **Lightning Kick (Lk)**
+  and **Deathblow (Db)** join Punch/Kick/JumpKick in every martial-arts
+  picker and as extra columns on the EQ tab's MA calculator, which also
+  gained a **Round** row (average damage @ swings per art). Speeds,
+  multipliers and Deathblow's −50 accuracy follow the addon (v69); a stock
+  1.11p database shows the Beta 32 UI unchanged.
+- **House quests** beside Ice Sorceress / High Druid: **High Sorcery** (Mage
+  Test: +50 mana, +15 mana regen, +30 SpDmg%), **PerStealth** rank 0–3
+  (backstab × (100 + level + 125·rank)/100) and **Smash swings** 1–6 (the a32
+  ladder). Saved in the character file.
+- GMUD's "data version > 1.85" option now also reaches the attack engine's
+  jumpkick speed table (it previously only fed the EQ calculator).
+- **Create MegaMUD DATs**: Kai spells now land as Mystic (the type byte is 11,
+  read from a stock MegaMUD Spells.md — the old 13 showed as "Bard-3"); "evil
+  in combat", signed Min/Max and the Targets-6 checkbox follow the stock file
+  exactly. The tool now reads a **full realm export** (the Nightmare Redux /
+  MugenMUD Editor .mdb converted with `tools/mdb2sqlite`) as well as an MMUD
+  Explorer export, and has an export checklist. Spells.md and the spell game
+  messages need the full export — on an MMUD Explorer export they are greyed
+  out ("Contact your Sysop"); Monsters/Items/Races/Classes still build. From a
+  full export the tool also builds **messages.md** (MegaMUD's Game Messages,
+  a text file): your existing records are kept, spells without one get a
+  record (spell name · effect line · wear-off line), and timed spells whose
+  record lacks an "Ends with" line receive the realm's wear-off text — the
+  fix for "No matching game messages are defined to signal the end of this
+  duration spell". `Messages-preview.txt` lists the realm side for review.
+
 ## Test suite
 
 ```
 dotnet test
 ```
 
-938 tests. Anchors were derived from independent replicas of the VB6
+985 tests. Anchors were derived from independent replicas of the VB6
 math (not from the port itself); real-database tests are guarded on the
 converted `mmud-1.11p.db` being present.
 

@@ -133,6 +133,13 @@ public static class AttackMath
         var state = loadedState ?? new LoadedCharState();
         var tRet = new AttackDamage();
 
+        // House martial arts (wccexcmd v57+): Palm Strike / Lightning Kick /
+        // Deathblow rejoin the engine's jumpkick arm with their own speed,
+        // multiplier and accuracy. Normalise to Jumpkick here so every
+        // skill/accuracy/damage lookup below reads the a35 (jumpkick) slot.
+        var art = HouseArt.For(attackTypeMud);
+        if (art != null) attackTypeMud = AttackTypeMud.Jumpkick;
+
         double preRollMinModifier = 1, preRollMaxModifier = 1;
         double damageMultiplierMin = 1, damageMultiplierMax = 1;
 
@@ -150,6 +157,7 @@ public static class AttackMath
         decimal avgHit = 0, durDamage = 0, extraTmp = 0, extraAvgSwing = 0, extraAvgHit = 0;
         long dmgMin = 0, dmgMax = 0, minCrit = 0, maxCrit = 0, avgCrit = 0, energy;
         double swings, percent = 0, percent2, extraPct;
+        double houseSmashSwings = 0; // > 0 only when the House smash-swings rule is in play
         string spellAbil = string.Empty, attackDetail = string.Empty;
 
         // ---- Manual-damage short circuit (VB6: nSpecifyDamage >= 0) ----
@@ -440,10 +448,15 @@ public static class AttackMath
                 if (abil68Slow) attackSpeed = 2000;
                 break;
             case AttackTypeMud.Jumpkick:
-                if (gmud)
+                if (art != null)
                 {
-                    // VB6: nGlobalDatVer gate — DatVersion lives on GreaterMudRules
-                    if (rules is GreaterMudRules { DatVersion: > 1.85 })
+                    attackSpeed = art.Speed;
+                    if (abil68Slow) attackSpeed = art.SpeedSlowed;
+                }
+                else if (gmud)
+                {
+                    // VB6: nGlobalDatVer gate — DatVersion lives on the rules
+                    if (rules.DatVersion > 1.85)
                     {
                         attackSpeed = 2800;
                         if (abil68Slow) attackSpeed = 3905; // VB6 comment: +39%, origin unknown
@@ -558,7 +571,17 @@ public static class AttackMath
         }
 
     calc_energy:
-        if (attackTypeMud == AttackTypeMud.Surprise || attackTypeMud == AttackTypeMud.Smash)
+        if (attackTypeMud == AttackTypeMud.Smash && charStats.HouseSmashSwings > 1)
+        {
+            // House rule (wccexcmd smash_energy_calc): energy = pool / a32 value,
+            // clamped 1..6, so the engine's swing loop yields exactly that many
+            // smashes per round. The per-swing 1.2x/5x multipliers are unchanged.
+            houseSmashSwings = Math.Min((double)charStats.HouseSmashSwings, Math.Min(6.0, rules.MaxSwings));
+            if (houseSmashSwings < 1) houseSmashSwings = 1;
+            energy = (long)Math.Max(1, Math.Floor(1000.0 / houseSmashSwings));
+            swings = houseSmashSwings;
+        }
+        else if (attackTypeMud == AttackTypeMud.Surprise || attackTypeMud == AttackTypeMud.Smash)
         {
             energy = 1000;
             swings = 1; // PIN: recomputed below to the same value — order fidelity
@@ -580,7 +603,8 @@ public static class AttackMath
             qnDBonus = rules.QuickAndDeadlyBonus(agility, energy, encumPct);
             critChance = VbRuntime.CInt((decimal)critChance + qnDBonus); // Integer = Integer + Currency
         }
-        if (critChance > 40)
+        short critSoft = rules.CritDiminishThreshold; // 40 stock/GMUD; House Style may move it
+        if (critChance > critSoft)
         {
             if (gmud)
             {
@@ -588,7 +612,7 @@ public static class AttackMath
             }
             else
             {
-                critChance = (short)(40 + (long)VbRuntime.Fix((critChance - 40) / 3.0)); // diminishing returns
+                critChance = (short)(critSoft + (long)VbRuntime.Fix((critChance - critSoft) / 3.0)); // diminishing returns
                 if (critChance > 99) critChance = 99;
             }
         }
@@ -598,6 +622,9 @@ public static class AttackMath
         swings = VbRuntime.Round(1000.0 / energy, 4);
 
         if (swings > rules.MaxSwings) swings = rules.MaxSwings;
+        // House smash: the engine loop yields exactly floor(pool/energy) = n swings,
+        // not the 1000/166 = 6.024 the generic formula would produce.
+        if (houseSmashSwings > 0) swings = houseSmashSwings;
 
         dmgMin += plusMinDamage;
         dmgMax += plusMaxDamage;
@@ -627,18 +654,23 @@ public static class AttackMath
             }
             else if (attackTypeMud == AttackTypeMud.Jumpkick)
             {
+                // House arts substitute their own multiplier for jumpkick's 1.66
+                // and carry their own accuracy term (Deathblow -50); stock/GMUD
+                // jumpkick is untouched when art == null.
+                double artMult = art?.Multiplier ?? 1.66;
                 if (gmud)
                 {
-                    damageMultiplierMin = 1.66;
-                    damageMultiplierMax = 1.66;
-                    attackAccuracy -= 15;
+                    damageMultiplierMin = artMult;
+                    damageMultiplierMax = artMult;
+                    attackAccuracy += art != null ? art.Accuracy : -15;
                 }
                 else
                 {
-                    preRollMinModifier = 1.66;
-                    preRollMaxModifier = 1.66;
+                    preRollMinModifier = artMult;
+                    preRollMaxModifier = artMult;
+                    if (art != null) attackAccuracy += art.Accuracy;
                 }
-                tRet.SAttackDesc = "JumpKick";
+                tRet.SAttackDesc = art?.Name ?? "JumpKick";
             }
         }
         else if (attackTypeMud == AttackTypeMud.Surprise)
@@ -662,8 +694,12 @@ public static class AttackMath
 
             if (classStealth || !gmud)
             {
-                dmgMin = (long)VbRuntime.Fix((level + 100) * dmgMin / 100.0);
-                dmgMax = (long)VbRuntime.Fix((level + 100) * dmgMax / 100.0);
+                // House rule (wccexcmd v47+): +125 pct points per PerStealth rank
+                // (a186 value, 0..3) folded into the engine's level multiplier.
+                int psRank = Math.Clamp((int)charStats.HousePerStealthRank, 0, 3);
+                int bsPct = level + 100 + 125 * psRank;
+                dmgMin = (long)VbRuntime.Fix(bsPct * dmgMin / 100.0);
+                dmgMax = (long)VbRuntime.Fix(bsPct * dmgMax / 100.0);
             }
 
             attackAccuracy = rules.BackstabAccuracy(stealth, agility, plusBsAccy, classStealth,

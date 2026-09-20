@@ -44,6 +44,10 @@ public sealed class CharacterProfile
     public short PlusBsAccy { get; set; }                     // nPlusBSaccy
     public short PlusBsMinDmg { get; set; }                   // nPlusBSmindmg
     public short PlusBsMaxDmg { get; set; }                   // nPlusBSmaxdmg
+    /// <summary>House rule (wccexcmd v38+): Ability 32 value = smash swings per round, 1..6. 1 = stock.</summary>
+    public short HouseSmashSwings { get; set; } = 1;
+    /// <summary>House rule (wccexcmd v47+): Ability 186 rank 0..3 — backstab min/max *= (100 + level + 125*rank)/100.</summary>
+    public short HousePerStealthRank { get; set; }
     public short[] MaPlusSkill { get; } = new short[4];       // nMAPlusSkill(1 To 3) — index 0 unused
     public short[] MaPlusAccy { get; } = new short[4];        // nMAPlusAccy(1 To 3) — index 0 unused
     public short[] MaPlusDmg { get; } = new short[4];         // nMAPlusDmg(1 To 3) — index 0 unused

@@ -439,6 +439,12 @@ public static class EnumNames
             case 185: return "NoAttackIfItemNum";
             case 186: return "PerfectStealth";
             case 187: return "Meditate";
+            // House martial arts (wccexcmd v57+): class-slot-only grants on the
+            // Mystic (class 15). Named on both engines so a realm DB that carries
+            // them reads sensibly in every ability list.
+            case 196: return "Palm Strike";
+            case 197: return "Lightning Kick";
+            case 198: return "Deathblow";
             default:
                 if (!gmud) return "Ability " + num; // stock Case Else
                 return num switch

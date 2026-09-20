@@ -213,7 +213,8 @@ public sealed partial class MainViewModel
         Loremaster: _quests[8], SixthAlign: _quests[9],
         SixthAlignOption: _quest6th, DreadWraith: _quests[10],
         DreadWraithOption: _questExtra1, Renfry: _quests[11],
-        RenfryOption: _questExtra2);
+        RenfryOption: _questExtra2,
+        HighSorcery: _questHighSorcery);
 
     // ---- character save/load (VB6 INI-compatible) ----
     public string? CurrentCharacterFile { get; private set; }
@@ -244,6 +245,7 @@ public sealed partial class MainViewModel
         Array.Copy(_equipSelected, c.Equipped, _equipSelected.Length);
         Array.Copy(_blessSelected, c.Bless, _blessSelected.Length);
         Array.Copy(_quests, c.Quests, _quests.Length);
+        WriteHouseQuestExtras(c); // Beta 33 house quests ride in [PlayerInfo]
         c.Save(path);
         CurrentCharacterFile = path;
         Status = $"Saved character: {Path.GetFileName(path)}";
@@ -268,6 +270,7 @@ public sealed partial class MainViewModel
             Array.Copy(c.Quests, _quests, _quests.Length);
             _quest2nd = c.Quest2nd; _quest6th = c.Quest6th;
             _questExtra1 = c.QuestExtra1; _questExtra2 = c.QuestExtra2;
+            ReadHouseQuestExtras(c); // Beta 33: HouseSmashSwings / HousePerStealth / HouseSorcery
             SnapshotStats();   // Char-tab Reload restores this load
             CharName = c.Name;
             LearnedSpells = (long[])c.LearnedSpells.Clone();
@@ -1016,6 +1019,7 @@ public sealed partial class MainViewModel
         }
         catch { _eqStats = null; }
         _eqAttack = ComputeEqAttack();
+        ComputeMaRounds(); // Beta 33 MA calculator (per-art round damage)
         NotifyEquipPanel();
     }
 

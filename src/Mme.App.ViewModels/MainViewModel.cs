@@ -107,6 +107,7 @@ public sealed partial class MainViewModel : INotifyPropertyChanged, IDisposable
             _db?.Dispose();
             _db = db;
             OnChanged(nameof(HasDatabase));
+            RefreshHouseArts(); // Beta 33: a196/197/198 on the Mystic?
             _allMonsters = db.GetMonsterGridRows();
             _allItems = db.GetItemGridRows();
             _allSpells = db.GetSpellGridRows();

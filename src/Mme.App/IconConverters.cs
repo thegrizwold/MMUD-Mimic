@@ -205,3 +205,12 @@ public sealed class SlotGeometryConverter : IValueConverter
     public object ConvertBack(object v, Type t, object p, CultureInfo c)
         => Binding.DoNothing;
 }
+
+/// <summary>Beta 33: bold while a pending edit awaits [Apply] (House Style).</summary>
+public sealed class BoolToFontWeightConverter : IValueConverter
+{
+    public object Convert(object value, Type t, object p, CultureInfo c) =>
+        value is true ? System.Windows.FontWeights.Bold : System.Windows.FontWeights.Normal;
+    public object ConvertBack(object v, Type t, object p, CultureInfo c)
+        => Binding.DoNothing;
+}

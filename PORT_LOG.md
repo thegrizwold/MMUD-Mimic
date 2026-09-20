@@ -1,5 +1,201 @@
 # PORT LOG (append-only; newest session at top)
 
+## Session 51 — 2026-09-20 — BETA 33: House Style Combat Settings, wccexcmd martial arts + ability-ladder quests (Fable)
+
+USER: the owner's custom realm runs the wccexcmd addon (v69): three new
+Mystic martial arts (a196 Palm Strike / a197 Lightning Kick / a198
+Deathblow), 6 combat swings for everyone (166-energy floor), smash swings
+from the a32 value, PerStealth ranks (a186) as a backstab multiplier, and a
+Mage Test (a193/194/195) whose reward is +50 mana / +15 mana regen / +30
+AlterSpDmg. MME and the Mimic hard-wire 5 swings (stock) / 6 (GMUD), QnD
+under 200 energy and the 40 crit soft-cap. Add a "House Style Combat
+Settings" toggle (EQ tab + Options) with Max Combat Swings / QnD Starts at
+[x] swings / QnD Cap, defaults 5/5/40, recomputing on [Apply]; put the new
+arts on the MA calculator (shorts) when the loaded DB grants them on class
+15; add quest checkboxes for PerStealth 2/3, smash 2..5 and the Mage Test
+beside Ice Sorceress / High Druid.
+
+Sources read (skill `majormud-builder`): `dll/wccexcmd_v69.c` — ART_* table
+(PS type 9 speed 2200/3000 ×1.90 acc 0; LK type 10 2500/3400 ×2.10 acc 0; DB
+type 11 3500/4500 ×4.00 acc −50; damage base = the jumpkick a35 arm),
+`smash_energy_calc` (energy = pool / a32 value, clamp 1..SMASH_MAX_SWINGS 6),
+`bs_swings_for` (BS_EXTRA_SWINGS 0 = OFF since v47 — PerStealth is damage
+only), the 0042b0f1 mirror `min,max *= (100 + level + 125·rank)/100`
+(BS_PS_PCT_PER_RANK 125, BS_PS_MAX_RANKS 3), QND_THRESHOLD 200,
+`HANDOFF_martial_arts.md`, codex 07f / 07f2 (Mage Test induction reward
+`addability 69 50 / 145 15 / 165 30`, identical for the three orders).
+
+**Interpretation notes (say in the summary):**
+- "Pu, Lk, Db" — Pu is Punch's short on the calculator already, so Palm
+  Strike is **Ps** (the addon's own `ps` command). Lk / Db as asked.
+- "QnD Cap: 40" — the stock QnD *bonus* cap is 20; the 40 is MME's crit
+  soft-cap (`If nCritChance > 40` diminishing 3:1). The group exposes both:
+  **Crit soft-cap [40]** and **QnD max bonus [20]**.
+- The addon is a stock-engine mod, so the arts carry their absolute speeds
+  under GMUD rules too (2200 is faster than GMUD's 2800 jumpkick).
+
+**Engine (Mme.Core):**
+- `IGameEngineRules` gained default members `QndEnergyThreshold` (200),
+  `QndMaxBonus` (20), `CritDiminishThreshold` (40), `DatVersion` (0; GMUD
+  returns its ctor value). `HouseStyleRules` decorator: MaxSwings, QnD start
+  (T = 1000/swings), QnD max, crit soft-cap; QnD formulas are the VB6 ones
+  with 200 generalised to T — stock `(T−EU)+Fix((AGL−50)/10)` cap/halve, GMUD
+  `Fix((1000 − EU·(1000/T)) / 50|40)`. Byte-identical to Stock/GMUD at the
+  defaults (test grid 6 AGL × 8 EU × 6 encum, both dat versions).
+- `AttackTypeMud` += PalmStrike 9 / LightningKick 10 / Deathblow 11;
+  `Formulas/HouseArts.cs` holds the table + `For/ForAbility/FromSelector/
+  IsMartialArt`.
+- `AttackMath.CalculateAttack`: house art → normalised to Jumpkick at entry
+  (every a35 skill/accy/dmg lookup unchanged), then `art.Speed/SpeedSlowed`,
+  `art.Multiplier` in place of 1.66 (pre-roll stock / damage-multiplier
+  GMUD), `art.Accuracy` in place of GMUD's −15, `SAttackDesc = art.Name`.
+  `critChance > 40` → `rules.CritDiminishThreshold` (stock `T + Fix((c−T)/3)`
+  cap 99; GMUD 65 clamp untouched). Smash with `HouseSmashSwings > 1`:
+  energy = Fix(1000/n), swings pinned to exactly n (the engine loop yields
+  floor(pool/energy), not 1000/166 = 6.024), n ≤ min(6, MaxSwings); per-swing
+  1.2×/5× unchanged. Backstab `(level + 100)` → `(level + 100 + 125·rank)`,
+  rank clamped 0..3, inside the existing `classStealth || !gmud` gate.
+  **Pre-existing gap closed:** `rules is GreaterMudRules { DatVersion > 1.85 }`
+  → `rules.DatVersion > 1.85` so a wrapped rules object reaches the 1.86
+  jumpkick speed table; the VM now builds `GreaterMudRules(DatVerModern ?
+  1.86 : 1.85)` (was `new GreaterMudRules()` = 0.0 → GMUD always took the
+  1.85 branch here while EquipmentStatsService got DatVer separately).
+- `CharacterProfile` += `HouseSmashSwings` (1) / `HousePerStealthRank` (0).
+- `EnumNames.GetAbilityName`: 196/197/198 named on both engines.
+
+**Data (Mme.Data):**
+- `EquipmentStatsService`: `EquipQuests.HighSorcery` → s[6]+50 / s[17]+15 /
+  s[33]+30 with tips; private `QuickAndDeadly` reads `_rules.QndEnergyThreshold`
+  / `QndMaxBonus`; display crit diminishing reads `_rules.CritDiminishThreshold`.
+- `CharacterSheetState` += the two house fields → Populate clamps into tChar;
+  MA range tests use `HouseArt.IsMartialArt`.
+- `DamageOutputService` MA mode: `HouseArt.FromSelector(cfg.MartialArts)`
+  (1/2/3/9/10/11); the profile is requested for Jumpkick when an art is chosen.
+- `MmeDatabase.GetHouseArtAbilities(class = 15)`: which of 196/197/198 sit in
+  the class's `Abil-0..9` slots (ClassHasAbility); empty on a stock DB.
+
+**VM / UI (Beta 33):**
+- `MainViewModel.HouseStyle.cs`: `HouseStyle` toggle; pending fields
+  `HouseMaxSwings/HouseQndStartSwings/HouseQndMaxBonus/HouseCritSoftCap`
+  (defaults 5/5/20/40) vs applied values; `ApplyHouseStyle()` clamps
+  (1..20 / 1..20 / 0..99 / 1..99), turns the toggle on, recomputes EQ panel +
+  attack line + MA calculator + lairs; `ResetHouseStyleDefaults`;
+  `HouseStyleDirty` bolds the Apply button; `HouseStyleSummary` tooltip /
+  status. `Rules` = `WrapHouseStyle(GreaterMud ? GreaterMudRules(datVer) :
+  Stock)`. `HouseStyleKey` + the house quest values ride in the attack
+  `ConfigKey` so the damage caches never serve stale results. Persisted in
+  `settings.json` (`UserSettings.HouseStyle/HouseMaxSwings/HouseQndStartSwings/
+  HouseQndMaxBonus/HouseCritSoftCap`; Beta 32 files load with the defaults).
+- House quests: `HouseSmashSwings` (1..6 combo), `HousePerStealthRank` (0..3
+  combo), `QuestHighSorcery` checkbox in Completed Quests; saved in the
+  character INI `[PlayerInfo]` as `HouseSmashSwings= / HousePerStealth= /
+  HouseSorcery=` (unknown-key extras path — Beta 32 files load as stock; the
+  OG ignores the keys).
+- House arts: `RefreshHouseArts()` on every DB open → `MartialArtChoices`
+  (Punch/Kick/JumpKick + Ps/Lk/Db present in the realm), `HouseArtsAvailable`,
+  `HouseArt{Ps,Lk,Db}Visible`. The Exp/Hr "MA:" TextBox is a ComboBox on that
+  list; the Choose Attack dialog's MA combo is bound to it; a selected art
+  the new realm lacks falls back to JumpKick.
+- MA calculator (EQ tab black panel): Ps/Lk/Db columns (collapsed on a stock
+  DB; they mirror the JmpKck skill/dmg/accy slots the arts share) and a new
+  **Round** row — per-art "avg @ swings" from the attack engine, computed in
+  RecalcEquipment (never a binding getter; 20 recalcs ≈ 9 ms).
+- Title "Beta 33", csproj 0.33.0 / Beta 33; `IconConverters.BoolToFontWeightConverter`.
+
+**MegaMUD DAT builder — fixed from the owner's stock Spells.md (471 records,
+`tests/Fixtures/Spells.stock.md`), crossed record-by-record against the 1.11p realm:**
+- Band byte 97 table is Priest 1–3 · Mage 4–6 · Druid 7–9 · **Bard 10 · Mystic 11**
+  (18/18 Kai records). The Beta 31 theory (Mystic 13) made MegaMUD's editor
+  show Kai spells as "Bard-3". `MegaMudDataBuilder.MysticBand = 11`.
+- "Evil in combat" (flag 0x04) is set exactly when the spell has ability
+  1 / 17 / 8 / 52 (EvilInCombat) — 466/466; the target-based heuristic
+  (+ Poison as damage) mis-set 44 records.
+- Min/Max at 88/90 are SIGNED (curse −6 = 0xFFFA); Beta 31 wrote Math.Abs
+  (51 records).
+- Targets 6 → checkbox nibble 0x50 (7/8 stock), was 0x30.
+- Timed-duration flag (0x02) ⇔ Dur > 0 holds (240/243) — so it is NOT the
+  cause of bug 2 below.
+Golden test `Rebuild_StockRealmOntoStockDonor_IsByteIdentical_OutsideKnownDrift`
+rebuilds the stock realm onto the stock file and demands byte identity on every
+written field outside 33 known data-drift records (upstream ability edits, dev
+stubs 1020/1021/1218, druid circle-2 spells filed as 3, monster-only "form of"
+spells given Mystic in the file). Not built/zipped yet at the owner's request.
+
+**Bug 2 — "No matching game messages are defined to signal the end of this
+duration spell" (MegaMUD Bless slot, `mshi`).** Root cause: the tool never wrote
+message records (both the Mimic builder and the skill's build_all.py copied the
+donor's messages.md through), and the MME schema carries no message data at all
+— no `Cast MSG A/B` numbers, no Messages table. The Katon entry the owner saw
+came from an earlier, since-deleted `megamud_sync.py` (realm-skill log
+2026-09-02), not from anything shipped.
+
+Owner's data model (screenshots): one MegaMUD Game Message per spell, keyed by
+**spell name**, matched by **text**: "Message" = the effect line, "Ends with" =
+the wear-off line. From the owner's full NMR export (`crimson_protocol_v79.mdb`,
+NMR v1.8.3, 2,492 spells, 5,734 messages) the realm side of that is:
+**Ends with = a115 DescMsg → Messages.Line 1** ("The effects of bless wear
+off!" / "Your ward against fire fades!"), **Message = that message's Line 3**
+("You feel lucky!" / "You are warded against fire!"), falling back to
+`Cast MSG B` Line 1 (then A) with the first `%s` → spell name; a remaining
+placeholder cuts the line and flags it *partial*. Verified on bless (8539),
+Katon (11318), protection from evil (8541).
+
+**Built (Beta 33):**
+- `MegaMudDataBuilder` is schema-aware: `ProbeSource` → `RealmSourceKind.MmeExport`
+  (calculator schema) or `FullRealm` (Messages table + `Cast MSG A` + NMR names);
+  every realm query goes through `C(table, mmeName)` which translates to NMR
+  column names (Spells Short→"Short Name", ReqLevel→Level … Items Encum→Weight,
+  Price→Cost; indexed families Abil-N→"Ability N" etc.); NUL-padded NMR text is
+  trimmed. Full realm adds the **Spell Type → byte 143** write (463/466 stock
+  agree). Smoke-run on the whole v79 export: Spells 299 upd / 552 ins / 1,641
+  unbanded skipped, Monsters 1,641, Items 3,334, 809 spell messages (405 timed).
+- `MegaMudBuildSelection` checklist (Spells/Monsters/Items/Races/Classes/Messages).
+  **Gate:** on an MME export Spells.md and Messages are NOT built (stat note =
+  `RealmSourceInfo.RequiresFullRealm`: "To create Spells and Messages it requires
+  a full realm export from Nightmare Redux or MugenMUD Editor — Contact your
+  Sysop."); the donor's messages.md is no longer copied into the output.
+- Build window: source line ("MMUD Explorer export … — no message data" /
+  "Full realm export (v1.8.3 · dat v1.11p · CrimsonProtocol) — 5,734 game
+  messages available"), "Full realm export (.db)…" picker (a converted NMR/
+  MugenMUD .mdb; rejects MME exports), "Use loaded DB", the export checklist
+  with Spells/Messages greyed on an MME source, the sysop popup on open.
+- **messages.md decoded and built.** The owner's working file (518 records)
+  showed MegaMUD's messages.md is a TEXT file: three CRLF lines per record
+  (`name:FFFF:A:response` / Message / Ends-with, blank when none), ASCII,
+  case-insensitive name order, names ≤ 30 chars, duplicates legal. FFFF = flag
+  word (0001 Blinded · 0002 Confused · 0004 Poisoned · 0008 Diseased · 0010
+  Movement prevented · 0020 Attack prevented · 0080 HP's regenerating · 0200
+  Mana regenerating · 0400 Find anywhere in text · 1000 Ends combat · 2000
+  Last action failed · 4000 Use when chasing; 0040/0100/0800/8000 unobserved),
+  A = Action radio (0 Ignore … 6 Hangup), response = "Response"/special
+  command with a literal `^M`. Damage lines use `{target}` / `{dmg}` /
+  `{source}` tokens. `MegaMudMessagesFile` Parse/Serialize round-trips the
+  stock file byte-for-byte. **Overlay rule** (donor knowledge wins): a spell
+  whose name already has a record is left alone, except a timed spell whose
+  record has an empty Ends-with receives the realm's wear-off line (the exact
+  "no matching game messages … end of this duration spell" case); spells with
+  no record are inserted with `0000:0:`. Realm lines: %s after the spell name →
+  `{target}`, %d → `{dmg}`. Full v79 realm onto the owner's file: 540 inserted
+  (Katon among them), 5 filled, 264 kept, 518 preserved → 1,058 records.
+  `Messages-preview.txt` still lists the realm side for review.
+- Tests: `Beta33RealmSourceTests` (probe both kinds, selection defaults,
+  bless/Katon/pfe/magic-missile extraction, Substitute table, MME gate refuses
+  Spells+Messages and writes nothing, full-realm build writes Spell Type +
+  Mystic 11 + preview) on `tests/Fixtures/realm-nmr-sample.db` (12-spell cut).
+
+**Tests:** `Beta33Tests.cs` (45 incl. the MegaMUD golden pair, the realm-source group and the messages.md format group): rules parity grids, threshold moves,
+GMUD 1000/T, ctor clamp/unwrap; art table vs v69, selector, names, speed
+ladder + multiplier + accuracy (stock and GMUD), no-skill → no attack,
+abil-68 slowed speed; smash ×3 round / cap 6 & MaxSwings; PerStealth ranks
+1..3 ratio + clamp; crit soft-cap 40/60/GMUD 65; MaxSwings 5/6/7; DatVersion
+through the wrapper; HighSorcery slots + tips both engines (real DB, all
+other slots unchanged); stock DB has no arts; a temp copy of the real DB
+with a196/a198 on class 15 → arts detected, VM pickers show Pu/Ki/Jk/Ps/Db;
+fallback from a missing art; UserSettings round-trip + Beta 32 defaults; VM
+defaults/apply/clamp/reset; settings seed + save; house quests clamp +
+character-file round-trip + Beta 32 file loads as stock; MA rounds filled;
+GMUD + DatVerModern + house QnD window monotone; stock Spells.md band/sign/evil anchors + golden rebuild. **Suite 985/985.**
+
 ## Session 50 — 2026-09-07 — BETA 32: MMUD Explorer v2.3.4 fork, removable EQ quick tags, code signing (Fable)
 
 USER: fork the v2.3.4 (09/06/2026) OG changes into the Mimic; make the EQ

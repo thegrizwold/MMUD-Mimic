@@ -96,7 +96,8 @@ public sealed class EquipmentStatsService
         bool Loremaster = false, bool SixthAlign = false,
         int SixthAlignOption = 0, bool DreadWraith = false,
         int DreadWraithOption = 0, bool Renfry = false,
-        int RenfryOption = 0);
+        int RenfryOption = 0,
+        bool HighSorcery = false);
 
     public sealed class EquipmentStatsResult
     {
@@ -680,9 +681,10 @@ public sealed class EquipmentStatsService
             if (crit < 0) crit = 0;
             s[7] = crit;
             res.EffectiveCrits = crit;
-            if (crit > 40 && !_gmud)
+            long critSoft = _rules.CritDiminishThreshold; // 40 stock; House Style may move it
+            if (crit > critSoft && !_gmud)
             {
-                long eff = 40 + (long)VbRuntime.Fix((crit - 40) / 3.0);
+                long eff = critSoft + (long)VbRuntime.Fix((crit - critSoft) / 3.0);
                 if (eff > 99) eff = 99;
                 res.EffectiveCrits = eff; // display-only in VB6
             }
@@ -772,15 +774,20 @@ public sealed class EquipmentStatsService
 
     private long QuickAndDeadly(long agl, decimal eu, long encum)
     {
-        if (eu >= 200 || (encum > 66 && !_gmud)) return 0;
+        // Threshold T = 200 energy (5 swings) stock/GMUD; HouseStyleRules moves it
+        // to 1000 / "QnD starts at" swings. With T = 200 every line below is the
+        // VB6 CalcQuickAndDeadlyBonus verbatim.
+        decimal t = _rules.QndEnergyThreshold;
+        if (eu >= t || (encum > 66 && !_gmud)) return 0;
         if (_gmud)
         {
             long divisor = DatVer > 1.85 ? 40 : 50; // nGlobalDatVer seam
-            long remain = 1000 - (long)(eu * 5);
+            long remain = 1000 - (long)(eu * (1000m / t));
             return (long)VbRuntime.Fix(remain / (double)divisor);
         }
-        long result = (200 - (long)eu) + (long)VbRuntime.Fix((agl - 50) / 10.0);
-        if (result > 20) result = 20;
+        long result = ((long)t - (long)eu) + (long)VbRuntime.Fix((agl - 50) / 10.0);
+        long cap = (long)_rules.QndMaxBonus;
+        if (result > cap) result = cap;
         if (encum >= 33) result = (long)VbRuntime.Fix(result / 2.0);
         return result;
     }
@@ -792,6 +799,15 @@ public sealed class EquipmentStatsService
         // (:27713–27878) stock quests 0..5 apply always; 6..11 GMUD-only.
         if (q.IceSorceress) { s[2] += 1; T(2, "Quest: Ice Sorceress (1)"); }
         if (q.HighDruid) { s[9] += 1; T(9, "Quest: High Druid (1)"); }
+        if (q.HighSorcery)
+        {
+            // House quest (wccexcmd Mage Test, a193/194/195 order counters): the
+            // induction reward is `addability 69 50 / 145 15 / 165 30` for every
+            // order — +50 max mana, +15 mana regen, +30 AlterSpDmg. Both engines.
+            s[6] += 50; T(6, "Quest: Test of High Sorcery (50)");
+            s[17] += 15; T(17, "Quest: Test of High Sorcery (15)");
+            s[33] += 30; T(33, "Quest: Test of High Sorcery (30)");
+        }
         if (q.AdultRedDragon)
         {
             s[7] += 1; T(7, "Quest: Adult Red Dragon (1)");

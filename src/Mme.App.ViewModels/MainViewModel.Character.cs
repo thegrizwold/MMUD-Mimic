@@ -136,7 +136,7 @@ public sealed partial class MainViewModel
     public long AttackOffhandNumber { get; set; }   // nGlobalCharWeaponNumber(1)
     public long AttackSpellNumber { get; set; }     // nGlobalAttackSpellNum
     public double AttackSpellLevel { get; set; }    // nGlobalAttackSpellLVL
-    public int AttackMartialArts { get; set; } = 1; // 1 punch / 2 kick / 3 jumpkick
+    public int AttackMartialArts { get; set; } = 1; // 1 punch / 2 kick / 3 jumpkick / 9 Ps / 10 Lk / 11 Db (house arts)
     public bool AttackBackstab { get; set; }        // bGlobalAttackBackstab
     public long AttackBackstabWeapon { get; set; }  // nGlobalAttackBackstabWeapon
     public bool AttackUseMeditate { get; set; }     // bGlobalAttackUseMeditate
@@ -270,6 +270,8 @@ public sealed partial class MainViewModel
         PlusBsAccy = CharPlusBsAccy,
         PlusBsMinDmg = CharPlusBsMinDmg,
         PlusBsMaxDmg = CharPlusBsMaxDmg,
+        HouseSmashSwings = _houseSmashSwings,
+        HousePerStealthRank = _housePerStealthRank,
         Stealth = CharStealth,
         PlusMinDamage = CharPlusMinDamage,
         QuicknessTag = CharQuickness,
@@ -332,6 +334,6 @@ public sealed partial class MainViewModel
         // loaded characters (and the proc-term plumbing rides with it)
         LoadedState = _eqStats?.Loaded,
         ConfigKey = FormattableString.Invariant(
-            $"{AttackMode}:{CharDamage}:{CharSpellDamage}:{AttackWeaponNumber}:{AttackSpellNumber}:{AttackSpellLevel}:{AttackMartialArts}:{AttackBackstab}:{AttackBackstabWeapon}:{UseCharacter}:{CharLevel}:{CharClassNumber}:{CharRaceNumber}:{CharStr}:{CharAgi}:{CharInt}:{CharCha}:{CharStealth}:{CharAccuracy}:{CharHitMagic}:{CharPlusBsAccy}:{PartySize}:{GreaterMud}"),
+            $"{AttackMode}:{CharDamage}:{CharSpellDamage}:{AttackWeaponNumber}:{AttackSpellNumber}:{AttackSpellLevel}:{AttackMartialArts}:{AttackBackstab}:{AttackBackstabWeapon}:{UseCharacter}:{CharLevel}:{CharClassNumber}:{CharRaceNumber}:{CharStr}:{CharAgi}:{CharInt}:{CharCha}:{CharStealth}:{CharAccuracy}:{CharHitMagic}:{CharPlusBsAccy}:{PartySize}:{GreaterMud}:{DatVerModern}:{HouseStyleKey}:{_houseSmashSwings}:{_housePerStealthRank}"),
     };
 }

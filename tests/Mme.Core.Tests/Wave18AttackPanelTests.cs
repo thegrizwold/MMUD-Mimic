@@ -1809,7 +1809,7 @@ public class DerivedStatsTests
     [Fact]
     public void CalcPicklocks_MatchesLiveScreenshot()
     {
-        // John's terminal: level-80 thief, Agi 90, Int 90 → Picklocks 185
+        // owner's terminal: level-80 thief, Agi 90, Int 90 → Picklocks 185
         Assert.Equal(185, Mme.Core.Formulas.CharacterMath.CalcPicklocks(
             greaterMud: false, level: 80, agi: 90, intellect: 90));
         // low-level branch: L≤15 → base = L·2
