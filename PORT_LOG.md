@@ -36,8 +36,11 @@ only), the 0042b0f1 mirror `min,max *= (100 + level + 125·rank)/100`
 
 **Engine (Mme.Core):**
 - `IGameEngineRules` gained default members `QndEnergyThreshold` (200),
-  `QndMaxBonus` (20), `CritDiminishThreshold` (40), `DatVersion` (0; GMUD
-  returns its ctor value). `HouseStyleRules` decorator: MaxSwings, QnD start
+  `QndMaxBonus` (stock: the bonus cap 20; GreaterMudRules overrides it with the
+  QnD DIVISOR — 50, or 40 above dat 1.85 — so the House panel's fourth field
+  is "QnD max bonus" on stock and "QnD divisor" on GMUD; owner's correction
+  2026-09-20), `CritDiminishThreshold` (40), `DatVersion` (0; GMUD returns its
+  ctor value). `HouseStyleRules` decorator: MaxSwings, QnD start
   (T = 1000/swings), QnD max, crit soft-cap; QnD formulas are the VB6 ones
   with 200 generalised to T — stock `(T−EU)+Fix((AGL−50)/10)` cap/halve, GMUD
   `Fix((1000 − EU·(1000/T)) / 50|40)`. Byte-identical to Stock/GMUD at the
@@ -77,8 +80,10 @@ only), the 0042b0f1 mirror `min,max *= (100 + level + 125·rank)/100`
 **VM / UI (Beta 33):**
 - `MainViewModel.HouseStyle.cs`: `HouseStyle` toggle; pending fields
   `HouseMaxSwings/HouseQndStartSwings/HouseQndMaxBonus/HouseCritSoftCap`
-  (defaults 5/5/20/40) vs applied values; `ApplyHouseStyle()` clamps
-  (1..20 / 1..20 / 0..99 / 1..99), turns the toggle on, recomputes EQ panel +
+  (defaults 5/5/40 + the engine's QnD number: 20 stock, 50/40 GMUD — an
+  untouched fourth field follows GreaterMud/DatVerModern flips, an edited one
+  stays) vs applied values; `ApplyHouseStyle()` clamps (1..20 / 1..20 /
+  0..99 — GMUD divisor ≥ 1 / 1..99), turns the toggle on, recomputes EQ panel +
   attack line + MA calculator + lairs; `ResetHouseStyleDefaults`;
   `HouseStyleDirty` bolds the Apply button; `HouseStyleSummary` tooltip /
   status. `Rules` = `WrapHouseStyle(GreaterMud ? GreaterMudRules(datVer) :
@@ -194,7 +199,7 @@ with a196/a198 on class 15 → arts detected, VM pickers show Pu/Ki/Jk/Ps/Db;
 fallback from a missing art; UserSettings round-trip + Beta 32 defaults; VM
 defaults/apply/clamp/reset; settings seed + save; house quests clamp +
 character-file round-trip + Beta 32 file loads as stock; MA rounds filled;
-GMUD + DatVerModern + house QnD window monotone; stock Spells.md band/sign/evil anchors + golden rebuild. **Suite 985/985.**
+GMUD + DatVerModern + house QnD window monotone; stock Spells.md band/sign/evil anchors + golden rebuild. **Suite 986/986.**
 
 ## Session 50 — 2026-09-07 — BETA 32: MMUD Explorer v2.3.4 fork, removable EQ quick tags, code signing (Fable)
 

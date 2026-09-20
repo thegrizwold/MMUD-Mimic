@@ -150,8 +150,11 @@ public interface IGameEngineRules
     /// 1000/200 = 5 swings, so this is "QnD starts at 5 swings".</summary>
     decimal QndEnergyThreshold => 200m;
 
-    /// <summary>Stock QnD bonus cap (<c>If result &gt; 20 Then 20</c>). GMUD
-    /// has no cap (its divisor bounds the value).</summary>
+    /// <summary>The engine's "QnD number": stock the bonus CAP (<c>If result &gt;
+    /// 20 Then 20</c>); GMUD the DIVISOR of <c>Fix((1000 − EU·5) / d)</c> — 50,
+    /// or 40 for data versions above 1.85 (the Options "Quick &amp; Deadly /40"
+    /// flag). The House Style panel's fourth field edits whichever the loaded
+    /// engine uses.</summary>
     decimal QndMaxBonus => 20m;
 
     /// <summary>Crit-chance soft cap: above it stock applies
@@ -220,7 +223,8 @@ public sealed class HouseStyleRules : IGameEngineRules
         if (eu >= t) return 0m;
         if (Inner.Kind == EngineKind.GreaterMud)
         {
-            short divisor = (short)(DatVersion > 0.0 && DatVersion > 1.85 ? 40 : 50);
+            // GMUD: the panel's fourth field is the divisor (engine 50, /40 above 1.85)
+            short divisor = (short)Math.Max(1m, QndMaxBonus);
             // stock GMUD: 1000 - eu*5 with 5 = 1000/200; generalised to 1000/T
             short remain = (short)Mme.Core.Text.VbRuntime.Round(1000m - eu * (1000m / t));
             return (decimal)Mme.Core.Text.VbRuntime.Fix(remain / (double)divisor);
@@ -377,6 +381,10 @@ public sealed class GreaterMudRules : IGameEngineRules
 
     /// <summary>VB6: nGlobalDatVer (modMain.bas, Double; 0 = unknown/undetected).</summary>
     public double DatVersion { get; }
+
+    /// <summary>GMUD's QnD DIVISOR (the interface's "QnD number"): 40 for data
+    /// versions above 1.85, else 50 — VB6 nGlobalDatVer seam.</summary>
+    public decimal QndMaxBonus => DatVersion > 1.85 ? 40m : 50m;
 
     public EngineKind Kind => EngineKind.GreaterMud;
 

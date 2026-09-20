@@ -1,6 +1,6 @@
 # MMUD-Mimic Beta 33 (0.33.0) — patch notes
 
-Changes since Beta 32 (0.32.0). Test suite 938 → 985, all green.
+Changes since Beta 32 (0.32.0). Test suite 938 → 986, all green.
 
 ## House Style Combat Settings
 
@@ -14,8 +14,9 @@ an opt-in overlay for those rules.
 - Fields: **Max Combat Swings**, **QnD Starts at [x] swings** (Quick & Deadly
   applies once a swing costs less than 1000 / x energy; stock 5 → under 200),
   **Crit soft-cap** (MMUD Explorer's 40 — crit chance above it counts 1/3) and
-  **QnD max bonus** (the stock cap of 20). Defaults 5 / 5 / 40 / 20 reproduce
-  stock and GreaterMUD exactly.
+  the engine's **QnD number**: on stock the bonus cap (20), on GreaterMUD the
+  divisor (50, or 40 with the "data version > 1.85" option). Defaults 5 / 5 /
+  40 and 20 · 50 · 40 follow the loaded engine and reproduce it exactly.
 - Edit the fields, press **Apply**: the EQ panel, attack line, Martial Arts
   calculator, monster damage tables and lair Exp/Hr all recompute. **Defaults**
   resets the fields. Turning the toggle off restores engine behaviour without

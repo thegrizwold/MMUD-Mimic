@@ -27,7 +27,8 @@ public sealed class UserSettings
     public bool HouseStyle { get; set; }
     public double HouseMaxSwings { get; set; } = 5;
     public double HouseQndStartSwings { get; set; } = 5;
-    public int HouseQndMaxBonus { get; set; } = 20;
+    /// <summary>0 = not set → the engine default at load (20 stock / 50 or 40 GMUD).</summary>
+    public int HouseQndMaxBonus { get; set; }
     public int HouseCritSoftCap { get; set; } = 40;
 
     /// <summary>Beta 32: the removable "Slot lists: find by ability" quick

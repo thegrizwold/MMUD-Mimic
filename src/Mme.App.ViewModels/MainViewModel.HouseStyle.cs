@@ -33,8 +33,43 @@ public sealed partial class MainViewModel
 
     public const double HouseDefaultMaxSwings = 5;
     public const double HouseDefaultQndStartSwings = 5;
+    /// <summary>Stock: the QnD bonus cap (20).</summary>
     public const int HouseDefaultQndMaxBonus = 20;
     public const int HouseDefaultCritSoftCap = 40;
+
+    /// <summary>The fourth field's engine default follows the loaded rules:
+    /// stock → the QnD bonus cap 20; GMUD → the QnD divisor, 40 with the
+    /// "data version > 1.85" option on, else 50.</summary>
+    public static int HouseDefaultQndMaxFor(bool greaterMud, bool datVerModern)
+        => greaterMud ? (datVerModern ? 40 : 50) : HouseDefaultQndMaxBonus;
+
+    private int EngineQndMaxDefault => HouseDefaultQndMaxFor(GreaterMud, DatVerModern);
+
+    /// <summary>Label for the fourth field: what the number means on this engine.</summary>
+    public string HouseQndMaxLabel => GreaterMud ? "QnD divisor:" : "QnD max bonus:";
+    public string HouseQndMaxTip => GreaterMud
+        ? "GreaterMUD: Quick & Deadly bonus = Fix((1000 − energy·5) / this). Engine 50, or 40 with the data-version > 1.85 option."
+        : "Cap on the stock Quick & Deadly crit bonus (engine 20).";
+    public string HouseDefaultsTip => FormattableString.Invariant(
+        $"5 swings / QnD from 5 swings / crit soft-cap 40 / {(GreaterMud ? "QnD divisor" : "QnD max")} {EngineQndMaxDefault} (press Apply)");
+
+    /// <summary>Called when GreaterMud or DatVerModern flips: a fourth field
+    /// still sitting on the previous engine's default follows to the new one
+    /// (pending and applied alike); an edited value is left alone.</summary>
+    private void OnEngineChangedForHouseStyle(bool wasGmud, bool wasModern)
+    {
+        int oldDef = HouseDefaultQndMaxFor(wasGmud, wasModern), newDef = EngineQndMaxDefault;
+        if (oldDef != newDef && _houseQndMaxBonus == oldDef && _appliedQndMaxBonus == oldDef)
+        {
+            _houseQndMaxBonus = _appliedQndMaxBonus = newDef;
+            OnChanged(nameof(HouseQndMaxBonus));
+            OnChanged(nameof(HouseStyleDirty));
+        }
+        OnChanged(nameof(HouseQndMaxLabel));
+        OnChanged(nameof(HouseQndMaxTip));
+        OnChanged(nameof(HouseDefaultsTip));
+        OnChanged(nameof(HouseStyleSummary));
+    }
 
     private bool _houseStyle;
     // pending (edited in the UI) vs applied (what the rules use)
@@ -80,8 +115,8 @@ public sealed partial class MainViewModel
         set { _houseQndStartSwings = value; OnChanged(); OnChanged(nameof(HouseStyleDirty)); }
     }
 
-    /// <summary>"QnD Max Bonus" — the stock cap on the QnD crit bonus (20).
-    /// GMUD's formula has no cap and ignores this. Pending until Apply.</summary>
+    /// <summary>The fourth field: stock the QnD bonus cap (20); GMUD the QnD
+    /// divisor (50, /40 above dat 1.85). Pending until Apply.</summary>
     public int HouseQndMaxBonus
     {
         get => _houseQndMaxBonus;
@@ -105,9 +140,9 @@ public sealed partial class MainViewModel
 
     /// <summary>The applied values as the status/tooltip line shows them.</summary>
     public string HouseStyleSummary => !_houseStyle
-        ? $"House Style off — engine defaults (swings {(GreaterMud ? 6 : 5)}, QnD under 200 energy, crit soft-cap 40)"
+        ? $"House Style off — engine defaults (swings {(GreaterMud ? 6 : 5)}, QnD under 200 energy, {(GreaterMud ? "QnD divisor" : "QnD max")} {EngineQndMaxDefault}, crit soft-cap 40)"
         : FormattableString.Invariant(
-            $"House Style: {_appliedMaxSwings:0.##} swings, QnD from {_appliedQndStartSwings:0.##} swings (< {Math.Round(1000.0 / Math.Max(1, _appliedQndStartSwings), 1):0.#} energy), QnD max {_appliedQndMaxBonus}, crit soft-cap {_appliedCritSoftCap}");
+            $"House Style: {_appliedMaxSwings:0.##} swings, QnD from {_appliedQndStartSwings:0.##} swings (< {Math.Round(1000.0 / Math.Max(1, _appliedQndStartSwings), 1):0.#} energy), {(GreaterMud ? "QnD divisor" : "QnD max")} {_appliedQndMaxBonus}, crit soft-cap {_appliedCritSoftCap}");
 
     /// <summary>[Apply] — validate and clamp the pending fields, make them the
     /// live rules, and recompute the EQ panel, the attack line, the MA
@@ -116,7 +151,7 @@ public sealed partial class MainViewModel
     {
         _houseMaxSwings = Math.Clamp(double.IsFinite(_houseMaxSwings) ? _houseMaxSwings : HouseDefaultMaxSwings, 1, 20);
         _houseQndStartSwings = Math.Clamp(double.IsFinite(_houseQndStartSwings) ? _houseQndStartSwings : HouseDefaultQndStartSwings, 1, 20);
-        _houseQndMaxBonus = Math.Clamp(_houseQndMaxBonus, 0, 99);
+        _houseQndMaxBonus = Math.Clamp(_houseQndMaxBonus, GreaterMud ? 1 : 0, 99); // a GMUD divisor is never 0
         _houseCritSoftCap = Math.Clamp(_houseCritSoftCap, 1, 99);
         _appliedMaxSwings = _houseMaxSwings;
         _appliedQndStartSwings = _houseQndStartSwings;
@@ -139,12 +174,13 @@ public sealed partial class MainViewModel
         Status = HouseStyleSummary;
     }
 
-    /// <summary>Reset the four fields to 5 / 5 / 20 / 40 (pending; press Apply).</summary>
+    /// <summary>Reset the four fields to 5 / 5 / 40 and the engine's QnD number
+    /// (20 stock, 50 or 40 GMUD) — pending; press Apply.</summary>
     public void ResetHouseStyleDefaults()
     {
         HouseMaxSwings = HouseDefaultMaxSwings;
         HouseQndStartSwings = HouseDefaultQndStartSwings;
-        HouseQndMaxBonus = HouseDefaultQndMaxBonus;
+        HouseQndMaxBonus = EngineQndMaxDefault;
         HouseCritSoftCap = HouseDefaultCritSoftCap;
     }
 
@@ -152,6 +188,7 @@ public sealed partial class MainViewModel
     internal void SeedHouseStyle(bool on, double maxSwings, double qndStart, int qndMax, int critSoft)
     {
         _houseStyle = on;
+        if (qndMax <= 0) qndMax = EngineQndMaxDefault; // unset / pre-Beta 33 settings.json
         _houseMaxSwings = _appliedMaxSwings = Math.Clamp(maxSwings is > 0 and < 21 ? maxSwings : HouseDefaultMaxSwings, 1, 20);
         _houseQndStartSwings = _appliedQndStartSwings = Math.Clamp(qndStart is > 0 and < 21 ? qndStart : HouseDefaultQndStartSwings, 1, 20);
         _houseQndMaxBonus = _appliedQndMaxBonus = Math.Clamp(qndMax, 0, 99);
@@ -160,7 +197,7 @@ public sealed partial class MainViewModel
         {
             nameof(HouseStyle), nameof(HouseMaxSwings), nameof(HouseQndStartSwings),
             nameof(HouseQndMaxBonus), nameof(HouseCritSoftCap), nameof(HouseStyleDirty),
-            nameof(HouseStyleSummary),
+            nameof(HouseStyleSummary), nameof(HouseQndMaxLabel), nameof(HouseQndMaxTip), nameof(HouseDefaultsTip),
         }) OnChanged(p);
     }
 

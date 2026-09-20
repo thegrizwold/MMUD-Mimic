@@ -43,7 +43,9 @@ public class Beta33HouseStyleRulesTests
     public void Defaults_AreByteIdenticalToGmud(double datVer)
     {
         var inner = new GreaterMudRules(datVer);
-        var house = new HouseStyleRules(inner, 6, 5, 20, 40);
+        // GMUD's fourth number is the QnD DIVISOR (50, or 40 above dat 1.85)
+        var house = new HouseStyleRules(inner, 6, 5, inner.QndMaxBonus, 40);
+        Assert.Equal(datVer > 1.85 ? 40m : 50m, inner.QndMaxBonus);
         Assert.Equal(datVer, house.DatVersion);
         Assert.Equal(EngineKind.GreaterMud, house.Kind);
         foreach (int agl in Agls)
@@ -63,6 +65,8 @@ public class Beta33HouseStyleRulesTests
         Assert.Equal(40, s.CritDiminishThreshold);
         Assert.Equal(0.0, s.DatVersion);
         Assert.Equal(200m, g.QndEnergyThreshold);
+        Assert.Equal(40m, g.QndMaxBonus);                       // GMUD: the divisor
+        Assert.Equal(50m, new GreaterMudRules(1.85).QndMaxBonus);
         Assert.Equal(1.86, g.DatVersion);
     }
 
@@ -93,14 +97,18 @@ public class Beta33HouseStyleRulesTests
         var g185 = new GreaterMudRules(1.85);
         Assert.Equal((decimal)VbRuntime.Fix((1000 - 150 * 5) / 50.0), g185.QuickAndDeadlyBonus(100, 150, 0));
         // house at 4 swings: T = 250, remain = 1000 - eu*4
-        var house = new HouseStyleRules(g185, 6, 4, 20, 40);
+        var house = new HouseStyleRules(g185, 6, 4, 50, 40);
         Assert.Equal(250m, house.QndEnergyThreshold);
         Assert.Equal((decimal)VbRuntime.Fix((1000 - 150 * 4) / 50.0), house.QuickAndDeadlyBonus(100, 150, 0));
         Assert.Equal((decimal)VbRuntime.Fix((1000 - 240 * 4) / 50.0), house.QuickAndDeadlyBonus(100, 240, 0));
         Assert.Equal(0m, house.QuickAndDeadlyBonus(100, 250, 0));
-        // 1.86 divides by 40
-        var house186 = new HouseStyleRules(new GreaterMudRules(1.86), 6, 4, 20, 40);
+        // 1.86 divides by 40 — and the panel can move the divisor itself
+        var house186 = new HouseStyleRules(new GreaterMudRules(1.86), 6, 4, 40, 40);
         Assert.Equal((decimal)VbRuntime.Fix((1000 - 150 * 4) / 40.0), house186.QuickAndDeadlyBonus(100, 150, 0));
+        var house30 = new HouseStyleRules(new GreaterMudRules(1.86), 6, 4, 30, 40);
+        Assert.Equal((decimal)VbRuntime.Fix((1000 - 150 * 4) / 30.0), house30.QuickAndDeadlyBonus(100, 150, 0));
+        Assert.Equal((decimal)VbRuntime.Fix((1000 - 150 * 5) / 1.0),
+            new HouseStyleRules(new GreaterMudRules(1.86), 6, 5, 0, 40).QuickAndDeadlyBonus(100, 150, 0)); // divisor floors at 1
     }
 
     [Fact]
@@ -330,7 +338,7 @@ public class Beta33AttackMathHouseRulesTests
         var house = AttackMath.CalculateAttack(new HouseStyleRules(StockRules.Instance, 5, 5, 20, 60), prof,
             AttackTypeMud.Normal, ref casts, weaponNumber: 1, weapon: Sword);
         Assert.Equal(60 + (long)VbRuntime.Fix((70 - 60) / 3.0), house.CritChance); // 63
-        var gmud = AttackMath.CalculateAttack(new HouseStyleRules(new GreaterMudRules(1.86), 6, 5, 20, 60), prof,
+        var gmud = AttackMath.CalculateAttack(new HouseStyleRules(new GreaterMudRules(1.86), 6, 5, 40, 60), prof,
             AttackTypeMud.Normal, ref casts, weaponNumber: 1, weapon: Sword);
         Assert.Equal(65, gmud.CritChance);            // GMUD hard clamp untouched
     }
@@ -360,8 +368,8 @@ public class Beta33AttackMathHouseRulesTests
         string casts = "";
         var p = new CharacterProfile { Level = 20, Combat = 2, Str = 80, Agi = 60, Accuracy = 60, Class = 15 };
         p.MaPlusSkill[3] = 3; // 2900 → 662 energy (1.51 swings) vs 2800 → 640 (1.5625)
-        var old = AttackMath.CalculateAttack(new HouseStyleRules(new GreaterMudRules(1.85), 6, 5, 20, 40), p, AttackTypeMud.Jumpkick, ref casts);
-        var modern = AttackMath.CalculateAttack(new HouseStyleRules(new GreaterMudRules(1.86), 6, 5, 20, 40), p, AttackTypeMud.Jumpkick, ref casts);
+        var old = AttackMath.CalculateAttack(new HouseStyleRules(new GreaterMudRules(1.85), 6, 5, 50, 40), p, AttackTypeMud.Jumpkick, ref casts);
+        var modern = AttackMath.CalculateAttack(new HouseStyleRules(new GreaterMudRules(1.86), 6, 5, 40, 40), p, AttackTypeMud.Jumpkick, ref casts);
         Assert.True(modern.Swings > old.Swings, $"{modern.Swings} vs {old.Swings}"); // 2800 vs 2900
         var direct = AttackMath.CalculateAttack(new GreaterMudRules(1.86), p, AttackTypeMud.Jumpkick, ref casts);
         Assert.Equal(direct.Swings, modern.Swings);
@@ -492,7 +500,7 @@ public class Beta33ViewModelTests
             Assert.False(old.HouseStyle);
             Assert.Equal(5, old.HouseMaxSwings);
             Assert.Equal(5, old.HouseQndStartSwings);
-            Assert.Equal(20, old.HouseQndMaxBonus);
+            Assert.Equal(0, old.HouseQndMaxBonus);   // unset → the VM seeds the engine default
             Assert.Equal(40, old.HouseCritSoftCap);
         }
         finally { try { File.Delete(path); } catch { } }
@@ -530,6 +538,43 @@ public class Beta33ViewModelTests
         Assert.True(vm.HouseStyleDirty);
         vm.ApplyHouseStyle();
         Assert.Equal((5.0, 5.0, 20, 40), vm.AppliedHouseStyle);
+    }
+
+    [Fact]
+    public void Vm_FourthField_FollowsTheEngine_20Stock_50Or40Gmud()
+    {
+        using var vm = new MainViewModel();
+        Assert.Equal("QnD max bonus:", vm.HouseQndMaxLabel);
+        Assert.Equal(20, vm.HouseQndMaxBonus);
+        Assert.Equal(20, MainViewModel.HouseDefaultQndMaxFor(false, true));
+        Assert.Equal(50, MainViewModel.HouseDefaultQndMaxFor(true, false));
+        Assert.Equal(40, MainViewModel.HouseDefaultQndMaxFor(true, true));
+
+        // an untouched field follows the engine (pending AND applied)
+        vm.GreaterMud = true;
+        Assert.Equal("QnD divisor:", vm.HouseQndMaxLabel);
+        Assert.Equal(50, vm.HouseQndMaxBonus);
+        Assert.Equal(50, vm.AppliedHouseStyle.QndMax);
+        Assert.False(vm.HouseStyleDirty);
+        vm.DatVerModern = true;                       // the "/40" option
+        Assert.Equal(40, vm.HouseQndMaxBonus);
+        Assert.Equal(40, vm.AppliedHouseStyle.QndMax);
+        vm.GreaterMud = false;
+        Assert.Equal(20, vm.HouseQndMaxBonus);
+        Assert.Contains("QnD max 20", vm.HouseStyleSummary);
+
+        // an edited value is left alone when the engine flips
+        vm.HouseQndMaxBonus = 25; vm.ApplyHouseStyle();
+        vm.GreaterMud = true;
+        Assert.Equal(25, vm.HouseQndMaxBonus);
+        Assert.Equal(25, vm.AppliedHouseStyle.QndMax);
+        Assert.Contains("QnD divisor 25", vm.HouseStyleSummary);
+        vm.ResetHouseStyleDefaults();                 // Defaults = the engine's number
+        Assert.Equal(40, vm.HouseQndMaxBonus);        // GMUD + modern
+        // a GMUD divisor can never be applied as 0
+        vm.HouseQndMaxBonus = 0; vm.ApplyHouseStyle();
+        Assert.Equal(1, vm.AppliedHouseStyle.QndMax);
+        Assert.Contains("divisor", vm.HouseDefaultsTip);
     }
 
     [Fact]

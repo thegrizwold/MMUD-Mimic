@@ -1064,14 +1064,15 @@
                   <TextBlock Text="Crit soft-cap:" VerticalAlignment="Center" Width="128"
                              ToolTip="Crit chance above this counts 1/3 (stock) — MME's 40"/>
                   <TextBox Width="40" Text="{Binding HouseCritSoftCap, UpdateSourceTrigger=PropertyChanged}"/>
-                  <TextBlock Text="QnD max bonus:" VerticalAlignment="Center" Margin="12,0,4,0"
-                             ToolTip="Cap on the stock Quick &amp; Deadly crit bonus (20); GMUD's /50 (/40) formula has no cap"/>
-                  <TextBox Width="40" Text="{Binding HouseQndMaxBonus, UpdateSourceTrigger=PropertyChanged}"/>
+                  <TextBlock Text="{Binding HouseQndMaxLabel}" VerticalAlignment="Center" Margin="12,0,4,0"
+                             ToolTip="{Binding HouseQndMaxTip}"/>
+                  <TextBox Width="40" Text="{Binding HouseQndMaxBonus, UpdateSourceTrigger=PropertyChanged}"
+                           ToolTip="{Binding HouseQndMaxTip}"/>
                   <Button Content="Apply" Width="60" Margin="14,0,0,0" Click="HouseStyleApply_Click"
                           FontWeight="{Binding HouseStyleDirty, Converter={StaticResource BoolToBold}}"
                           ToolTip="Re-run every calculator (EQ panel, attack line, MA calculator, monster damage, lairs) with these values"/>
                   <Button Content="Defaults" Width="60" Margin="4,0,0,0" Click="HouseStyleDefaults_Click"
-                          ToolTip="5 swings / QnD from 5 swings / crit soft-cap 40 / QnD max 20 (press Apply)"/>
+                          ToolTip="{Binding HouseDefaultsTip}"/>
                 </StackPanel>
               </StackPanel>
             </GroupBox>

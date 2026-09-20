@@ -954,7 +954,14 @@ public sealed partial class MainViewModel
     public bool DatVerModern
     {
         get => _datVerModern;
-        set { _datVerModern = value; OnChanged(); RecalcEquipment(); }
+        set
+        {
+            bool wasModern = _datVerModern;
+            _datVerModern = value;
+            OnChanged();
+            OnEngineChangedForHouseStyle(GreaterMud, wasModern);
+            RecalcEquipment();
+        }
     }
 
     public bool AutoSaveCharacter { get; set; }

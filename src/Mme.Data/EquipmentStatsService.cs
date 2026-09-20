@@ -781,7 +781,8 @@ public sealed class EquipmentStatsService
         if (eu >= t || (encum > 66 && !_gmud)) return 0;
         if (_gmud)
         {
-            long divisor = DatVer > 1.85 ? 40 : 50; // nGlobalDatVer seam
+            // nGlobalDatVer seam (50 / 40 above 1.85); House Style overrides the divisor
+            long divisor = _rules is HouseStyleRules ? Math.Max(1, (long)_rules.QndMaxBonus) : (DatVer > 1.85 ? 40 : 50);
             long remain = 1000 - (long)(eu * (1000m / t));
             return (long)VbRuntime.Fix(remain / (double)divisor);
         }

@@ -62,9 +62,10 @@ public sealed partial class MainViewModel
         set
         {
             if (_greaterMud == value) return;
+            bool wasGmud = _greaterMud;
             _greaterMud = value;
             OnChanged();
-            OnChanged(nameof(HouseStyleSummary));
+            OnEngineChangedForHouseStyle(wasGmud, DatVerModern);
             NotifyFindBestCriteria(); // VileWard et al. are GMUD-only
         }
     }

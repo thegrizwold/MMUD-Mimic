@@ -111,8 +111,10 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
   overlay on the stock/GMUD rules for realms running the wccexcmd addon —
   **Max Combat Swings**, **QnD Starts at [x] swings** (Quick & Deadly applies
   under 1000/x energy; stock 5 → 200), **Crit soft-cap** (MME's 40, above
-  which crits count 1/3) and **QnD max bonus** (stock 20). Defaults 5 / 5 /
-  40 / 20 are byte-identical to the engine; edit and press **Apply** to
+  which crits count 1/3) and the engine's **QnD number** — stock the bonus
+  cap (20), GreaterMUD the divisor (50, or 40 with the data-version > 1.85
+  option). Defaults follow the loaded engine and are byte-identical to it;
+  edit and press **Apply** to
   recompute the EQ panel, attack line, MA calculator, monster damage and
   lair Exp/Hr. Saved in `settings.json`.
 - **House martial arts**: when the loaded realm grants ability 196 / 197 /
@@ -149,7 +151,7 @@ MONEY columns convert to exact decimal text; booleans keep VB6's −1/0.
 dotnet test
 ```
 
-985 tests. Anchors were derived from independent replicas of the VB6
+986 tests. Anchors were derived from independent replicas of the VB6
 math (not from the port itself); real-database tests are guarded on the
 converted `mmud-1.11p.db` being present.
 
