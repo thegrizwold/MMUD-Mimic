@@ -275,7 +275,9 @@ public sealed partial class MmeDatabase : IDisposable
 
         var sql = new System.Text.StringBuilder(
             "SELECT \"ArmourClass\",\"DamageResist\",\"Accy\"");
-        for (int i = 0; i <= 9; i++) sql.Append($",\"Abil-{i}\",\"AbilVal-{i}\"");
+        // 2.3.4 FIX: items carry 20 ability slots (Abil-0..19) — the VB6
+        // ItemHasAbility loop only scanned 0..9
+        for (int i = 0; i <= 19; i++) sql.Append($",\"Abil-{i}\",\"AbilVal-{i}\"");
         sql.Append(" FROM \"Items\" WHERE \"Number\" = $n");
         using var cmd = _con.CreateCommand();
         cmd.CommandText = sql.ToString();
@@ -294,7 +296,7 @@ public sealed partial class MmeDatabase : IDisposable
             }
             // VB6 comment: no exit — an Abil slot could still accumulate
         }
-        for (int x = 0; x <= 9; x++)
+        for (int x = 0; x <= 19; x++)
         {
             long abil = L(r[3 + x * 2]);
             if (abil == ability)
@@ -425,6 +427,23 @@ public sealed partial class MmeDatabase : IDisposable
         return rows;
     }
 
+    /// <summary>modItemParse GetItemsByExactNameArr (:1147): EVERY item record
+    /// whose trimmed name equals the trimmed input, filtered only by
+    /// bOnlyInGame (the derived .Gettable flag is computed but the stat-bonus
+    /// caller never reads it), in Number order.</summary>
+    public List<long> FindItemNumbersByExactName(string name, bool onlyInGame = false)
+    {
+        var outp = new List<long>();
+        using var cmd = _con.CreateCommand();
+        cmd.CommandText = "SELECT \"Number\" FROM \"Items\" " +
+            "WHERE TRIM(\"Name\") = $n COLLATE NOCASE"
+            + (onlyInGame ? " AND \"In Game\" <> 0" : "") + " ORDER BY \"Number\"";
+        cmd.Parameters.AddWithValue("$n", name.Trim());
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) outp.Add(L(r[0]));
+        return outp;
+    }
+
     /// <summary>Case-insensitive exact-name lookup (paste carried import).
     /// Returns 0 when absent.</summary>
     public long FindItemNumberByName(string name)
@@ -491,6 +510,46 @@ public sealed partial class MmeDatabase : IDisposable
                 result[name] = L(r[0]);
         }
         return result;
+    }
+
+    /// <summary>ClassHasAbility / RaceHasAbility "does not have" sentinel.</summary>
+    public const int AbilityNotFound = -31337;
+
+    /// <summary>VB6: modMMudDatabase.bas :: ClassHasAbility(nClass, nAbility) —
+    /// AbilVal of the first matching Abil-0..9 slot, −31337 when absent.</summary>
+    public int GetClassAbilityValue(long classNumber, int ability)
+        => TableAbilityValue("Classes", classNumber, ability);
+
+    /// <summary>VB6: modMMudDatabase.bas :: RaceHasAbility (:3153).</summary>
+    public int GetRaceAbilityValue(long raceNumber, int ability)
+        => TableAbilityValue("Races", raceNumber, ability);
+
+    private int TableAbilityValue(string table, long number, int ability)
+    {
+        if (ability <= 0 || number <= 0) return AbilityNotFound;
+        var sql = new System.Text.StringBuilder("SELECT ");
+        for (int i = 0; i <= 9; i++) sql.Append((i > 0 ? "," : "") + $"\"Abil-{i}\",\"AbilVal-{i}\"");
+        sql.Append($" FROM \"{table}\" WHERE \"Number\" = $n");
+        using var cmd = _con.CreateCommand();
+        cmd.CommandText = sql.ToString();
+        cmd.Parameters.AddWithValue("$n", number);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return AbilityNotFound;
+        for (int x = 0; x <= 9; x++)
+            if (L(r[x * 2]) == ability) return checked((int)L(r[x * 2 + 1]));
+        return AbilityNotFound;
+    }
+
+    /// <summary>(Number, Short) for every spell in Number order — the
+    /// GetSpellByShort table scan.</summary>
+    public List<(long Number, string Short)> GetSpellShorts()
+    {
+        var rows = new List<(long, string)>();
+        using var cmd = _con.CreateCommand();
+        cmd.CommandText = "SELECT \"Number\",\"Short\" FROM \"Spells\" ORDER BY \"Number\"";
+        using var r = cmd.ExecuteReader();
+        while (r.Read()) rows.Add((L(r[0]), S(r[1])));
+        return rows;
     }
 
     public string? GetClassName(long number) => ScalarName("Classes", number);
@@ -634,6 +693,127 @@ public sealed partial class MmeDatabase : IDisposable
             foreach (string l in ResolveLocationRefs(calledFrom))
                 outp.Add("  " + l);
         }
+        return outp;
+    }
+
+    /// <summary>modMMudDatabase GetTextblockLinkTo: TBInfo."LinkTo" (0 when
+    /// none / missing).</summary>
+    public long GetTextblockLinkTo(long textblock)
+    {
+        if (textblock <= 0) return 0;
+        using var cmd = _con.CreateCommand();
+        cmd.CommandText = """SELECT "LinkTo" FROM "TBInfo" WHERE "Number" = $n""";
+        cmd.Parameters.AddWithValue("$n", textblock);
+        object? o = cmd.ExecuteScalar();
+        return o is null || o is DBNull ? 0 : Convert.ToInt64(o);
+    }
+
+    /// <summary>v2.3.4 modMMudDatabase :: GetTextblockTeleport — the
+    /// destination of the FIRST "teleport &lt;room&gt; [map]" in the
+    /// textblock's action. <paramref name="map"/> is 0 when the command
+    /// did not name a map (caller assumes the current map). Includes the
+    /// 2.3.4 FIX for a teleport on the LAST line of the block (the VB6
+    /// line splitter dropped the final character, losing the map number).
+    /// The digit-run parser is a SUPERSET of the VB6 char walk: runs of
+    /// spaces between the numbers and a bare "teleport N" ending the block
+    /// are accepted here (VB6 returned nothing for those malformed shapes).</summary>
+    public bool GetTextblockTeleport(long textblock, out long room, out long map)
+    {
+        room = 0; map = 0;
+        if (textblock <= 0) return false;
+        using var cmd = _con.CreateCommand();
+        cmd.CommandText = """SELECT "Action" FROM "TBInfo" WHERE "Number" = $n""";
+        cmd.Parameters.AddWithValue("$n", textblock);
+        string action = cmd.ExecuteScalar() as string ?? "";
+        foreach (string rawLine in action.Split('\n'))
+        {
+            string line = rawLine.TrimEnd('\r');
+            int x = line.IndexOf("teleport ", StringComparison.Ordinal);
+            if (x < 0) continue;
+            var nums = new List<long>();
+            int i = x + "teleport ".Length;
+            while (i < line.Length && nums.Count < 2)
+            {
+                while (i < line.Length && line[i] == ' ') i++;
+                int start = i;
+                while (i < line.Length && char.IsAsciiDigit(line[i])) i++;
+                if (i == start) break; // non-digit token ends the parse
+                nums.Add(long.Parse(line[start..i]));
+            }
+            if (nums.Count == 0 || nums[0] <= 0) continue;
+            room = nums[0];
+            map = nums.Count > 1 ? nums[1] : 0;
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>v2.3.4 modMain :: AddRoomNPCCommandRefs — the greet commands
+    /// of a room's assigned NPC, for the map's room references. A command
+    /// whose textblock (or its LinkTo) teleports yields its own
+    /// "Teleport: (NPC) cmd --&gt; room (map/room)" row; every other
+    /// command is collected onto one "Greet: a, b, c  [TB n]" row. Same
+    /// bogus-greet filter as PullMonsterDetail (heh:/nothing:/yada:/hehe:/
+    /// shit:) so the map agrees with the monster detail pane.</summary>
+    public List<string> GetRoomNpcCommandRefs(long npc, long currentMap)
+    {
+        var outp = new List<string>();
+        if (npc <= 0) return outp;
+        long greetTb;
+        using (var cmd = _con.CreateCommand())
+        {
+            cmd.CommandText = """SELECT "GreetTXT" FROM "Monsters" WHERE "Number" = $n""";
+            cmd.Parameters.AddWithValue("$n", npc);
+            object? o = cmd.ExecuteScalar();
+            greetTb = o is null || o is DBNull ? 0 : Convert.ToInt64(o);
+        }
+        if (greetTb <= 0) return outp;
+        string data;
+        using (var cmd = _con.CreateCommand())
+        {
+            cmd.CommandText = """SELECT "Action" FROM "TBInfo" WHERE "Number" = $n""";
+            cmd.Parameters.AddWithValue("$n", greetTb);
+            data = cmd.ExecuteScalar() as string ?? "";
+        }
+        if (data.Length == 0 || data == "\0") return outp;
+        string lower = data.ToLowerInvariant();
+        if (lower.StartsWith("heh:") || lower.StartsWith("nothing:")
+            || lower.StartsWith("yada:") || lower.StartsWith("hehe:")
+            || lower.StartsWith("shit:")) return outp;
+
+        var greets = new List<string>();
+        var keys = new HashSet<string>();
+        foreach (string rawLine in data.Split('\n'))
+        {
+            string line = rawLine.TrimEnd('\r');
+            int colon = line.IndexOf(':');
+            if (colon <= 0) continue;
+            string command = line[..colon].Replace("*", "").Replace("|", " OR ");
+            string rest = line[(colon + 1)..].Trim();
+            if (command.Length == 0) continue;
+            long subTb = Mme.Core.Text.VbRuntime.CLng(Mme.Core.Text.VbRuntime.Val(rest));
+            if (subTb < 1) continue;
+
+            // the teleport nearly always sits one LinkTo deeper than the
+            // greet command's own textblock
+            bool tele = GetTextblockTeleport(subTb, out long room, out long map);
+            if (!tele)
+            {
+                long link = GetTextblockLinkTo(subTb);
+                if (link > 0) tele = GetTextblockTeleport(link, out room, out map);
+            }
+            if (tele && room > 0)
+            {
+                if (map == 0) map = currentMap;
+                // only de-dupe against the other NPC rows added here
+                if (keys.Add($"{map}/{room}"))
+                    outp.Add($"Teleport: (NPC) {command} --> "
+                        + $"{GetRoomName(map, room, true)} ({map}/{room})");
+            }
+            else greets.Add(command);
+        }
+        if (greets.Count > 0)
+            outp.Add($"Greet: {string.Join(", ", greets)}  [TB {greetTb}]");
         return outp;
     }
 
@@ -911,18 +1091,36 @@ public sealed partial class MmeDatabase : IDisposable
     /// <summary>PullItemDetail :765-:767 — the item's source locations:
     /// "Obtained From" + (NMR >= 1.7) "References", resolved to the
     /// jumpable Monster/Shop/Room/Lair lines.</summary>
+    /// <para>2.3.4 FIX (PullItemDetail :1696 GetLocations(..., bDontClear:=True)):
+    /// the OG's LearnSp rows were being wiped by GetLocations' ListView clear.
+    /// The port derives the same rows directly — every ability-42 (LearnSp)
+    /// slot becomes a jumpable "(teaches) Spell: name (N)" row.</para>
     public List<string> GetItemLocationLines(long number)
     {
         using var cmd = _con.CreateCommand();
-        cmd.CommandText = "SELECT \"Obtained From\",\"References\" "
-            + "FROM \"Items\" WHERE \"Number\" = $n";
+        var sql = new System.Text.StringBuilder(
+            "SELECT \"Obtained From\",\"References\"");
+        for (int i = 0; i <= 19; i++) sql.Append($",\"Abil-{i}\",\"AbilVal-{i}\"");
+        sql.Append(" FROM \"Items\" WHERE \"Number\" = $n");
+        cmd.CommandText = sql.ToString();
         cmd.Parameters.AddWithValue("$n", number);
         using var r = cmd.ExecuteReader();
         if (!r.Read()) return [];
-        var lines = ResolveLocationRefs(S(r[0]));
-        foreach (string l in ResolveLocationRefs(S(r[1])))
-            if (!lines.Contains(l)) lines.Add(l);
-        return lines;
+        var refs = ResolveLocationRefsWithPct(S(r[0]), number);
+        // :1701 GetLocations(References, …) passes no nAuxValue → no shop regen %
+        foreach (var t in ResolveLocationRefsWithPct(S(r[1]), 0))
+            if (!refs.Any(x => x.Line == t.Line)) refs.Add(t);
+        for (int x = 0; x <= 19; x++)
+        {
+            if (L(r[2 + x * 2]) != 42) continue;
+            long sp = L(r[3 + x * 2]);
+            if (sp <= 0) continue;
+            string line = $"(teaches) Spell: {GetSpellName(sp) ?? sp.ToString()} ({sp})";
+            if (!refs.Any(t => t.Line == line)) refs.Add((line, 0));
+        }
+        // PullItemDetail :1897 LV_RefreshSort(LocationLV, 1, ldtnumber, True, False):
+        // the % column, descending; ties keep source order (stable)
+        return refs.OrderByDescending(t => t.Pct).Select(t => t.Line).ToList();
     }
 
     /// <summary>S47 — where a spell is LEARNED, for the Spells detail
@@ -954,7 +1152,7 @@ public sealed partial class MmeDatabase : IDisposable
         using (var cmd = _con.CreateCommand())
         {
             var ors = new List<string>();
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i <= 19; i++) // all 20 item ability slots
                 ors.Add($"(\"Abil-{i}\" = 42 AND \"AbilVal-{i}\" = $s)");
             cmd.CommandText = "SELECT \"Number\",\"Name\" FROM \"Items\" WHERE "
                 + string.Join(" OR ", ors) + " ORDER BY \"Number\"";
@@ -1081,8 +1279,18 @@ public sealed partial class MmeDatabase : IDisposable
 
     public List<string> ResolveLocationRefs(string sLoc,
         bool hideNumbers = false)
+        => ResolveLocationRefsWithPct(sLoc, 0, hideNumbers).Select(t => t.Line).ToList();
+
+    /// <summary>GetLocations with bPercentColumn: every row carries the
+    /// numeric % the OG put in its sort Tag — the "(NN%)" after the ref
+    /// (drop / spawn / textblock chance; &gt; 1 → Round(0), else Round(2)),
+    /// and for "Shop #N" rows the item's shop regen chance
+    /// (<see cref="GetItemShopRegenPct"/>) when <paramref name="itemNumber"/>
+    /// is known. Rows without a percent tag 0.</summary>
+    public List<(string Line, decimal Pct)> ResolveLocationRefsWithPct(string sLoc,
+        long itemNumber, bool hideNumbers = false)
     {
-        var outp = new List<string>();
+        var outp = new List<(string, decimal)>();
         if (sLoc.Length < 5) return outp;
         foreach (string raw in sLoc.Split(','))
         {
@@ -1090,33 +1298,41 @@ public sealed partial class MmeDatabase : IDisposable
             if (e.Length == 0) continue;
             // trailing "(NN%)" appearance/spawn chance, kept for display
             string pct = "";
+            decimal pctVal = 0;
             var pm = System.Text.RegularExpressions.Regex.Match(e,
                 @"\(([\d.]+%)\)\s*$");
-            if (pm.Success) pct = $" ({pm.Groups[1].Value})";
+            if (pm.Success)
+            {
+                pct = $" ({pm.Groups[1].Value})";
+                pctVal = (decimal)Mme.Core.Text.TextUtils.ExtractNumbersFromString(pm.Groups[1].Value);
+            }
             string lower = e.ToLowerInvariant();
+            int before = outp.Count;
+            var lines = new List<string>();
+            void Add(string l) => lines.Add(l);
             if (TryRef(lower, "monster #", out long n))
-                outp.Add($"Monster: {Nm(GetMonsterName(n), n, hideNumbers)}{pct}");
+                Add($"Monster: {Nm(GetMonsterName(n), n, hideNumbers)}{pct}");
             else if (TryRef(lower, "npc #", out n))
-                outp.Add($"Monster: {Nm(GetMonsterName(n), n, hideNumbers)}{pct}");
+                Add($"Monster: {Nm(GetMonsterName(n), n, hideNumbers)}{pct}");
             else if (TryRef(lower, "textblock(rndm) #", out n)
                      || TryRef(lower, "textblock #", out n))
-                outp.Add(ResolveTextblockRef(n, pct, hideNumbers));
+                Add(ResolveTextblockRef(n, pct, hideNumbers));
             else if (TryRef(lower, "item #", out n))
-                outp.Add($"Item: {Nm(GetItemName(n), n, hideNumbers)}{pct}");
+                Add($"Item: {Nm(GetItemName(n), n, hideNumbers)}{pct}");
             else if (TryRef(lower, "spell #", out n))
-                outp.Add($"Spell: {Nm(GetSpellName(n), n, hideNumbers)}{pct}");
+                Add($"Spell: {Nm(GetSpellName(n), n, hideNumbers)}{pct}");
             else if (TryRef(lower, "shop(sell) #", out n))
-                outp.Add($"Shop (sell): {GetShopRoomNames(n, 1, hideNumbers)}{pct}");
+                Add($"Shop (sell): {GetShopRoomNames(n, 1, hideNumbers)}{pct}");
             else if (TryRef(lower, "shop(nogen) #", out n))
-                outp.Add($"Shop (nogen): {GetShopRoomNames(n, 1, hideNumbers)}{pct}");
+                Add($"Shop (nogen): {GetShopRoomNames(n, 1, hideNumbers)}{pct}");
             else if (TryRef(lower, "shop #", out n))
-                outp.Add($"Shop: {GetShopRoomNames(n, 1, hideNumbers)}{pct}");
+                Add($"Shop: {GetShopRoomNames(n, 1, hideNumbers)}{pct}");
             else if (lower.StartsWith("room "))
             {
                 var (map, room) = ParseMapRoom(e[5..]);
                 if (map > 0)
-                    outp.Add($"Room: {GetRoomName(map, room, hideNumbers)}{pct}");
-                else outp.Add(e);
+                    Add($"Room: {GetRoomName(map, room, hideNumbers)}{pct}");
+                else Add(e);
             }
             else if (lower.Contains("group"))
             {
@@ -1137,15 +1353,66 @@ public sealed partial class MmeDatabase : IDisposable
                         string label = mc.Success
                             ? $"Lair ({mc.Groups[1].Value} mobs): "
                             : "Spawn: ";
-                        outp.Add($"{label}{GetRoomName(map, room, hideNumbers)}{pct}");
-                        continue;
+                        Add($"{label}{GetRoomName(map, room, hideNumbers)}{pct}");
+                        goto finalize;
                     }
                 }
-                outp.Add(e);
+                Add(e);
             }
-            else outp.Add(e);
+            else Add(e);
+
+        finalize:
+            // shop rows: the OG's percent column is the item's shop regen %
+            // (:375, recomputed for every "Shop #" row when the item is known)
+            bool shopPct = false;
+            if (itemNumber > 0 && TryRef(lower, "shop #", out long shopNum))
+            {
+                pctVal = GetItemShopRegenPct(shopNum, itemNumber);
+                shopPct = pctVal > 0;
+            }
+            // GetLocations :112 — Round(0) above 1%, Round(2) at or below
+            pctVal = pctVal > 1 ? Math.Round(pctVal, MidpointRounding.ToEven)
+                : Math.Round(pctVal, 2, MidpointRounding.ToEven);
+            if (shopPct) // the OG shows the ROUNDED percent in its % column
+                for (int i = 0; i < lines.Count; i++)
+                    lines[i] += $" ({pctVal:0.##}%)";
+            foreach (string l in lines) outp.Add((l, pctVal));
         }
         return outp;
+    }
+
+    /// <summary>VB6: modMMudDatabase.bas :: GetItemShopRegenPCT (:1770) —
+    /// Σ over the shop's slots holding the item with Max &gt; 0 of
+    /// Amount × (1440/Time) × (%/100), or +1 for a slot without regen data
+    /// (stock); ShopType 8 → 0; capped 99; Round(2).</summary>
+    public decimal GetItemShopRegenPct(long shopNumber, long itemNumber)
+    {
+        if (shopNumber < 1 || itemNumber < 1) return 0;
+        var sql = new System.Text.StringBuilder("SELECT \"ShopType\"");
+        for (int i = 0; i <= 19; i++)
+            sql.Append($",\"Item-{i}\",\"Max-{i}\",\"Time-{i}\",\"Amount-{i}\",\"%-{i}\"");
+        sql.Append(" FROM \"Shops\" WHERE \"Number\" = $n");
+        using var cmd = _con.CreateCommand();
+        cmd.CommandText = sql.ToString();
+        cmd.Parameters.AddWithValue("$n", shopNumber);
+        using var r = cmd.ExecuteReader();
+        if (!r.Read()) return 0;
+        if (L(r[0]) == 8) return 0;
+        decimal total = 0; // Currency: 4 dp at every assignment (VbRuntime.CCur)
+        for (int x = 0; x <= 19; x++)
+        {
+            int b = 1 + x * 5;
+            if (L(r[b]) != itemNumber || L(r[b + 1]) <= 0) continue;
+            long time = L(r[b + 2]), amount = L(r[b + 3]), pct = L(r[b + 4]);
+            if (time > 0 && pct > 0 && amount > 0)
+            {
+                decimal mult = Mme.Core.Text.VbRuntime.CCur(1440.0 / time);
+                total = Mme.Core.Text.VbRuntime.CCur((double)(total + amount * mult * (pct / 100m)));
+            }
+            else total += 1; // stock only, we'll give it a 1% chance
+        }
+        if (total > 99) total = 99;
+        return Math.Round(total, 2, MidpointRounding.ToEven);
     }
 
     /// <summary>"map/room" (leading junk tolerated), 0/0 on failure.</summary>
